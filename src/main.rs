@@ -1,33 +1,48 @@
 use std::path::PathBuf;
+use petgraph::Graph;
+use petgraph::dot::Dot;
+
 fn main() {
-    println!("Hello, world!");
-    let gfa = gfa::parser::parse_gfa(&PathBuf::from("./input/lil.gfa"));
+    
+    println!("Insert path to file");
+    
+    // let mut path = String::new();
+    // std::io::stdin().read_line(&mut path).expect("Error");
+    // path.pop(); //Remove trailing /n
+
+    let mut path = "./input/samplePath3.gfa";
+
+    let gfa = gfa::parser::parse_gfa(&PathBuf::from(path));
     
     match gfa {
         None => panic!("Error parsing GFA file"),
         Some(g) => {
-            let num_segs = g.segments.len();
-            let num_links = g.links.len();
-            let num_paths = g.paths.len();
-            let num_conts = g.containments.len();
 
-            //println!("num_segs: {}",num_segs);
-            //println!("num_links: {}",num_links);
-            //println!("num_paths: {}",num_paths);
-            //println!("num_conts: {}",num_conts);
-
+            let mut deps = Graph::<&str,()>::new();
+            
             println!("Segments");
             for seg in &g.segments {
-                println!("{}",seg.name);
+                println!("{},{}",seg.name,seg.sequence);
             }
+
             println!("Links");
             for link in &g.links {
-                println!("{}",link.from_segment);
+                println!("{},{},{},{},{}",link.from_segment, link.from_orient.as_bool(), link.to_segment, link.to_orient.as_bool(), link.overlap);
             }
-            //println!("segs: {}",g.segments);
-            //println!("links: {}",num_links);
-            //println!("paths: {}",num_paths);
-            //println!("conts: {}",num_conts);
+
+            println!("Paths");
+            for path in &g.paths {
+                println!("{},{:?},{:?}", path.path_name, path.segment_names, path.overlaps);
+            }
+            
+            // println("Containments");
+            // for c in &g.containments {
+            //     println!("")
+            // }
+
+
+            //println!("{}", Dot::new(&deps));
+
         }
     }
 }
