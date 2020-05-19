@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 petgraph = "0.5.0"
 clap = "2.33.1"
+chrono = "0.4"
 handlegraph = { path = "./dep/rs-handlegraph" }
 gfa = { path = "./dep/rs-gfa" }
 
