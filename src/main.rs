@@ -91,20 +91,24 @@ fn main() {
 fn build_graph(gfa: &GFA) -> Graph<&str, &str> {
     let mut graph = Graph::<&str, &str>::new();
 
-    let mut nodes_id = vec![];
+    //let mut nodes_id = vec![];
+    let mut nodes_id = HashMap::new();
 
     for seg in &gfa.segments {
         let id = graph.add_node(&seg.name);
-        nodes_id.push(id);
+        nodes_id.insert(&seg.name, id);
     }
 
-    let mut edges = vec![];
     for link in &gfa.links {
-        let e = (&link.from_segment, &link.to_segment);
-        edges.push(e);
-    }
+        let from_id = nodes_id[&link.from_segment];
+        let to_id = nodes_id[&link.to_segment];
+        
+        //TODO: fix this
+        //let text = format!("{} -> {}", &link.from_segment, &link.to_segment);
+        let text = "";
 
-    println!("{:?}",edges);
+        graph.add_edge(from_id, to_id, text);
+    }
 
     graph
 }
