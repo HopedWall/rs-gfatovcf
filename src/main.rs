@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
-//use handlegraph::graph::HashGraph;
-//use handlegraph::handlegraph::HandleGraph;
-//use handlegraph::handle::NodeId;
+use handlegraph::graph::HashGraph;
+use handlegraph::handlegraph::HandleGraph;
+use handlegraph::handle::{NodeId,Handle};
+use handlegraph::pathgraph::PathHandleGraph;
 use gfa::gfa::GFA;
 use std::fs::File;
 use std::io::Write;
@@ -10,10 +12,9 @@ extern crate clap;
 extern crate chrono;
 use chrono::Utc;
 use std::io::{BufReader,BufRead};
-use petgraph::graph::Graph;
-use petgraph::dot::{Dot, Config};
-use petgraph::graphmap::DiGraphMap;
-use std::collections::HashMap;
+use petgraph::prelude::*;
+
+
 
 struct Variant {
     chromosome: String,
@@ -25,6 +26,47 @@ struct Variant {
     filter: String,
     info: String,
 }
+
+// Why doesn't this work?
+fn process_step(g : HashGraph, s : HashGraph::StepHandle) -> String {
+    let h = g.get_handle_of_step(s);
+    let is_rev = h.is_reverse();
+    let id = h.id();
+    
+    let result = String::from(id);
+    if is_rev == true {
+        result.push_str("+");
+    } else {
+        result.push_str("-");
+    }
+
+    result
+}
+
+fn create_into_hashmap(g : HashGraph, path_to_steps : HashMap<String, Vec<String>>,  path : HashGraph::PathHandle, step : HashGraph::StepHandle) {
+    let path_name = g.get_path_name(path);
+    if !path_to_steps.contains_key(path_name) {
+        path_to_steps[path_name] = Vec::new();
+    } 
+    path_to_steps[path_name].push(process_step(g,step));
+}
+
+// What's the fourth parameter for?
+fn create_edge_and_so_on(g : HashGraph, g_dfs : Vec<String>, handle1 : HashGraph::NodeHandle, handle2 : HashGraph::NodeHandle, so_on_function : &dyn Fn() -> i32, args : String) {
+    let handle1_id = g.get_id(handle1);
+    let handle2_id = g.get_id(handle2); 
+
+    if !g_dfs.contains(handle1) {
+        g_dfs.append(g.get_sequence(handle1));
+    }
+
+    if !g_dfs.contains(handle2) {
+        g_dfs.append(g.get_sequence(&handle2));
+    }
+}
+
+
+
 
 fn main() {
 
@@ -61,85 +103,71 @@ fn main() {
     let ref_path = "./input/samplePath3.fa";
     let in_path = "./input/samplePath3.gfa";
     let out_path = "./input/samplePath3.vcf";
-
-    if let Some(reference) = parse_reference(&PathBuf::from(in_path)) {
+      
+    if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path)) {
         
-        if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path)) {
-            //let graph = HashGraph::from_gfa(&gfa);
-            //println!("{:?}",graph);
-            
-            //Build graph from scratch
-            let graph = build_graph(&gfa);
+        let graph = HashGraph::from_gfa(&gfa);
+        println!("{:?}",graph);
 
-            //Print graph
-            let x = Dot::with_config(&graph, &[Config::EdgeIndexLabel]);
-            println!("{}", x);
+        let path_to_steps_map = HashMap::new();
 
-            //Find variations
-            let variations = find_variants(&graph, &reference);
+        let get_path_to_steps = |p| {
+            graph.for_each_step_in_path(p, |s| create_into_hashmap(graph, path_to_steps_map, p, s))
+        };
 
-            //Write variations to file
-            write_to_file(&PathBuf::from(out_path), &variations).unwrap();
-        } else {
-            panic!("Couldn't parse gfa file!");
+        graph.for_each_handle(get_path_to_steps);    
+        
+        let node_id_to_path_and_pos_map = HashMap::new();
+        for (path_name, steps_list) in path_to_steps_map {
+            let pos = 0;
+
+            for nodeId_isRev in steps_list {
+                
+                // TODO: check what these are
+                let node_id = nodeId_isRev.parse::<u64>().unwrap();
+                let is_rev = nodeId_isRev;
+
+                // Why does get handle require 2 parameters?
+                let node_handle = graph.get_handle(NodeId::from(node_id), false);
+                let seq = graph.get_sequence(&node_handle);
+
+                if !node_id_to_path_and_pos_map.contains_key(&node_id) {
+                    node_id_to_path_and_pos_map[&node_id] = HashMap::new();
+                }
+
+                if !node_id_to_path_and_pos_map[&node_id].contains_key(&path_name) {
+                    node_id_to_path_and_pos_map[&node_id][&path_name] = pos;
+                }
+
+                pos += seq.len();
+            }
         }
+
+        // TODO: this must be sorted
+        for node_id in node_id_to_path_and_pos_map.keys() {
+            let path_and_pos_map = node_id_to_path_and_pos_map[node_id];
+            println!("Node_id : {}", node_id);
+
+            for (path, pos) in path_and_pos_map {
+                println!("Path: {}  -- Pos: {}", path, pos);
+            }
+        }
+
+        let start_node = graph.get_handle(NodeId::from(1), false);
+
+        //let g_dfs = Vec::new(); //Will be used a stack for DFS
+        // Not an array as comment states, but a graph/tree
+        //let g_dfs = Petgraph::new();
+
+        //Find variations
+        //let variations = find_variants(&graph, &reference);
+
+        //Write variations to file
+        //write_to_file(&PathBuf::from(out_path), &variations).unwrap();
     } else {
-        panic!("Couldn't parse reference file!");
-    }
-}
-
-fn build_graph(gfa: &GFA) -> Graph<&str, &str> {
-    let mut graph = Graph::<&str, &str>::new();
-
-    //let mut nodes_id = vec![];
-    let mut nodes_id = HashMap::new();
-
-    for seg in &gfa.segments {
-        let id = graph.add_node(&seg.name);
-        nodes_id.insert(&seg.name, id);
+        panic!("Couldn't parse gfa file!");
     }
 
-    for link in &gfa.links {
-        let from_id = nodes_id[&link.from_segment];
-        let to_id = nodes_id[&link.to_segment];
-        
-        //TODO: fix this
-        //let text = format!("{} -> {}", &link.from_segment, &link.to_segment);
-        let text = "";
-
-        graph.add_edge(from_id, to_id, text);
-    }
-
-    graph
-}
-
-fn find_variants(graph: &Graph<&str, &str>, reference: &String) -> Vec<Variant> {
-    
-    // TODO: function
-    let mut variations: Vec<Variant> = Vec::new();
-    
-    //is this correct?
-    //let first_node = graph.get_handle(NodeId::from(1), false);
-
-    //traverse the graph
-    //graph.for_each_handle(|h| {
-    //   println!();
-    //);
-
-    variations
-}
-
-fn parse_reference(path: &PathBuf) -> Option<String> {
-    let file = File::open(path).expect(&format!("Error opening file {:?}", path));
-    
-    let reader = BufReader::new(file);
-    let mut reference = String::new();
-
-    for line in reader.lines() {
-        reference.push_str(&line.unwrap());
-    }
-
-    Some(reference)
 }
 
 fn write_to_file(path: &PathBuf, variations: &Vec<Variant>) -> std::io::Result<()> {
