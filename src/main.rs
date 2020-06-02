@@ -2,6 +2,7 @@ use std::collections::HashMap;
 //use std::collections::BTreeMap; //like hashmap but sorted
 use std::path::PathBuf;
 use handlegraph::graph::HashGraph;
+use handlegraph::graph::{PathId, PathStep};
 use handlegraph::handlegraph::HandleGraph;
 use handlegraph::handle::{NodeId,Handle, Direction};
 use handlegraph::pathgraph::PathHandleGraph;
@@ -30,7 +31,7 @@ struct Variant {
 }
 
 // Why doesn't this work?
-fn process_step(g : &HashGraph, s : &HashGraph::StepHandle) -> String {
+fn process_step(g : &HashGraph, s : &PathStep) -> String {
     let h = g.get_handle_of_step(s);
     let is_rev = h.is_reverse();
     let id = h.id();
@@ -47,7 +48,7 @@ fn process_step(g : &HashGraph, s : &HashGraph::StepHandle) -> String {
     result
 }
 
-fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<String>>,  path : &HashGraph::PathHandle, step : &HashGraph::StepHandle) {
+fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<String>>,  path : &PathStep, step : &PathId) {
     let path_name = g.get_path_name(path);
     if !path_to_steps.contains_key(path_name) {
         path_to_steps[path_name] = Vec::new();
@@ -57,7 +58,7 @@ fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<Stri
 
 
 // TODO: fix last argument
-fn create_edge_and_so_on(g : &HashGraph, g_dfs : &HashGraph, handle1 : &HashGraph::NodeHandle, handle2 : &HashGraph::NodeHandle, so_on_function : &dyn Fn(&HashGraph, &HashGraph::NodeHandle), args : &Vec<String>) {
+fn create_edge_and_so_on(g : &HashGraph, g_dfs : &HashGraph, handle1 : &PathStep, handle2 : &PathStep, so_on_function : &dyn Fn(&HashGraph, &HashGraph::NodeHandle), args : &Vec<String>) {
     let handle1_id = g.get_id(handle1);
     let handle2_id = g.get_id(handle2); 
 
@@ -80,7 +81,7 @@ fn create_edge_and_so_on(g : &HashGraph, g_dfs : &HashGraph, handle1 : &HashGrap
     }
 }
 //TODO: see create_edge_and_so_on
-fn dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : &HashGraph::NodeHandle) {
+fn dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : &PathId) {
     let current_node = g.get_handle(node_id, false);
     let sequence_node = g.get_sequence(&current_node);
 
@@ -104,7 +105,7 @@ fn calculate_distance(visited_node_id_set : HashSet<String>, prev_node_id : Stri
 }
 
 // This function can be optimized via closures!
-fn bfs_distances(g : HashGraph, starting_node_id : HashGraph::NodeHandle) {
+fn bfs_distances(g : &HashGraph, starting_node_id : &PathId) {
     let visited_node_id_set = HashSet::new();
     let node_id_list = Vec::new();
     g.for_each_handle(|h| true);
@@ -121,7 +122,7 @@ fn show_edge(g_dfs : &HashGraph, a : u64, b : u64) {
      print!("{} --> {}", g_dfs.get_id(NodeId::from(a)), g_dfs.get_id(NodeId::from(b)));
 }
 
-fn display_node_edges(g_dfs : &HashGraph, h : &HandleGraph::NodeHandle) {
+fn display_node_edges(g_dfs : &HashGraph, h : &PathId) {
     print!("node {}", g_dfs.get_id(h));
     g_dfs.follow_edges(
         h, Direction::Right,
@@ -223,11 +224,11 @@ fn main() {
 
         let g_dfs = HashGraph::new();
 
-        dfs(&graph, &g_dfs, 1);
+        dfs(&graph, &g_dfs, &1);
 
         g_dfs.for_each_handle(display_node_edges);
 
-        let value = bfs_distances(g_dfs, 1);
+        let value = bfs_distances(&g_dfs, &1);
 
         let distances_map = value[0];
         let ordered_node_id_list = value[1];
@@ -300,10 +301,83 @@ fn main() {
                     let current_index_step_path = 0;
                     let current_index_step_ref = 0;
 
-                    //TODO: complete this
-                }
+                    for i in range(0, max_index) {
 
+                        let current_node_id_path = path[current_index_step_path];
+                        let current_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path];
+                    
+                        println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
+                        
+                        if current_node_id_ref == current_node_id_path {
+                            println!("REFERENCE");
+                            let node_seq = g.get_sequence(g.get_handle(current_node_id_ref));
+                            pos_ref += len(node_seq);
+                            pos_path = pos_ref;
+                            current_index_step_ref += 1;
+                            current_index_step_path += 1;
+                        } else {
+                            let succ_node_id_path = path[current_index_step_path + 1];
+                            let succ_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path + 1];
+                            if succ_node_id_ref == current_node_id_path {
+                                println!("DEL");
+                                let node_seq_ref = g.get_sequence(g.get_handle(current_node_id_ref));
+                                let prec_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path - 1];
+                                let prec_nod_seq_ref = g.get_sequence(g.get_handle(prec_node_id_ref))
+                                //key = '_'.join([current_ref, str(pos_path - 1), prec_nod_seq_ref[-1] + node_seq_ref])
+                                if key not in stuff_to_alts_dict {
+                                    stuff_to_alts_dict[key] = HashSet::new();
+                                }
+                                //stuff_to_alts_dict[key].add(prec_nod_seq_ref[-1] + '_del')
+                                pos_ref += len(node_seq_ref);
+                                current_index_step_ref += 1;
+                                current_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path -1];
+                                println!("\t {}", current_node_id_ref);
+                                continue;
+                            } else if (succ_node_id_path == current_node_id_ref) {
+                                println!("INS");
+                                let node_seq_path = g.get_sequence(g.get_handle(current_node_id_path))
+                                
+                                let prec_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path-1];
+                                let prec_nod_seq_ref = g.get_sequence(g.get_handle(prec_node_id_ref));
+                                //key = '_'.join([current_ref, str(pos_ref-1), prec_nod_seq_ref[-1]])
+                                
+                                if key not in stuff_to_alts_dict {
+                                    stuff_to_alts_dict[key] = HashSet::new();
+                                }
+                                //stuff_to_alts_dict[key].add(prec_nod_seq_ref[-1] + node_seq_path + '_ins')
+                                pos_path += len(node_seq_path)
+                                current_index_step_path += 1
+                                current_node_id_path = path[current_index_step_path]
+                                println!("\t{}", current_node_id_path)
+                                continue;
+                            } else {
+                                node_seq_ref = g.get_sequence(g.get_handle(current_node_id_ref));
+                                node_seq_path = g.get_sequence(g.get_handle(current_node_id_path));
+
+                                if node_seq_ref == node_seq_path {
+                                    println!("REFERENCE");
+                                } else {
+                                    println!("SNV");
+                                }
+
+                                key = '_'.join([current_ref, str(pos_path), node_seq_ref])
+                                if key not in stuff_to_alts_dict{
+                                    stuff_to_alts_dict[key] = set();
+                                }
+                                    
+                                stuff_to_alts_dict[key].add(node_seq_path + "snv");
+
+                                pos_ref += len(node_seq_ref);
+                                pos_path += len(node_seq_path);
+                                current_index_step_ref += 1;
+                                current_index_step_path += 1;
+                            }
+                        }
+                    }
+                    println!("---");
+                }   
             }
+            println!("==========================================");
         }
 
 
