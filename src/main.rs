@@ -55,65 +55,83 @@ fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<Stri
     path_to_steps[path_name].push(process_step(g,step));
 }
 
-// ------------ FROM NOW ON -- ODGI REQUIRED? ---------
 
-// What's the fourth parameter for?
-// fn create_edge_and_so_on(g : HashGraph, g_dfs : Vec<String>, handle1 : HashGraph::NodeHandle, handle2 : HashGraph::NodeHandle, so_on_function : &dyn Fn() -> i32, args : Fn()) {
-//     let handle1_id = g.get_id(handle1);
-//     let handle2_id = g.get_id(handle2); 
+// TODO: fix last argument
+fn create_edge_and_so_on(g : &HashGraph, g_dfs : &HashGraph, handle1 : &HashGraph::NodeHandle, handle2 : &HashGraph::NodeHandle, so_on_function : &dyn Fn(&HashGraph, &HashGraph::NodeHandle), args : &Vec<String>) {
+    let handle1_id = g.get_id(handle1);
+    let handle2_id = g.get_id(handle2); 
 
-//     if !g_dfs.contains(handle1) {
-//         g_dfs.append(g.get_sequence(handle1));
-//     }
-
-//     if !g_dfs.contains(handle2) {
-//         g_dfs.append(g.get_sequence(&handle2));
-//     }
-// } //TODO: understand this function better
-
-// fn dfs(g : HashGraph, node_id : HashGraph::NodeHandle) {
-//     let current_node = g.get_handle(node_id, false);
-//     let sequence_node = g.get_sequence(&current_node);
-
-//     g.follow_edges(
-//         &current_node, 
-//         Direction::Right,  //What should go here?
-//         |neighbor| {
-//             //create_edge_and_so_on(g, g_dfs: Vec<String>, current_node, neighbor, dfs, g.get_id(neighbor));
-//             true
-//         });
-// }
-
-// fn calculate_distance(visited_node_id_set : HashSet<String>, prev_node_id : String, neighbour_id : String, Q : VecDeque<String>, distances_map : HashMap<String,u64>) {
-//     if !visited_node_id_set.contains(&neighbour_id) {
-//         distances_map[&neighbour_id] = distances_map[&prev_node_id] + 1;
-//         // is push_back correct?
-//         Q.push_back(neighbour_id);
-//         visited_node_id_set.insert(neighbour_id);
-//     }
-// }
-
-// // This function can be optimized via closures!
-// fn bfs_distances(g : HashGraph, starting_node_id : HashGraph::NodeHandle) {
-//     let visited_node_id_set = HashSet::new();
-//     let node_id_list = Vec::new();
-//     g.for_each_handle(|h| true);
-
-//     for node_id in node_id_list {
-//         distances_map[node_id] = 0;
-//     }
-//     node_id_list.clear();
-
-//     //TODO: complete this function
-// }
-
-// // fn show_edge(g_dfs : Graph, a : u64, b : u64) {
+    if !g_dfs.has_node(handle2_id) {
+        so_on_function(args[0],args[1]);
+        
+        if !g_dfs.has_node(handle1) {
+            g_dfs.create_handle(
+                g.get_sequence(handle1), 
+                handle1_id);
+        }
     
-// //     print!(g_dfs.get_id)
-// // }
+        if !g_dfs.has_node(handle2) {
+            g_dfs.create_handle(
+                g.get_sequence(handle2), 
+                handle2_id);
+        }
+    
+        g_dfs.create_edge(handle1, handle2)
+    }
+}
+//TODO: see create_edge_and_so_on
+fn dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : &HashGraph::NodeHandle) {
+    let current_node = g.get_handle(node_id, false);
+    let sequence_node = g.get_sequence(&current_node);
 
+    g.follow_edges(
+        &current_node, 
+        Direction::Right,  //What should go here?
+        |neighbor| {
+            create_edge_and_so_on(
+                &g, &g_dfs, &current_node, &neighbor, &dfs, g.get_id(neighbor));
+            true
+        });
+}
 
+fn calculate_distance(visited_node_id_set : HashSet<String>, prev_node_id : String, neighbour_id : String, Q : VecDeque<String>, distances_map : HashMap<String,u64>) {
+    if !visited_node_id_set.contains(&neighbour_id) {
+        distances_map[&neighbour_id] = distances_map[&prev_node_id] + 1;
+        // is push_back correct?
+        Q.push_back(neighbour_id);
+        visited_node_id_set.insert(neighbour_id);
+    }
+}
 
+// This function can be optimized via closures!
+fn bfs_distances(g : HashGraph, starting_node_id : HashGraph::NodeHandle) {
+    let visited_node_id_set = HashSet::new();
+    let node_id_list = Vec::new();
+    g.for_each_handle(|h| true);
+
+    for node_id in node_id_list {
+        distances_map[node_id] = 0;
+    }
+    node_id_list.clear();
+
+    //TODO: complete this function
+}
+
+fn show_edge(g_dfs : &HashGraph, a : u64, b : u64) {
+     print!("{} --> {}", g_dfs.get_id(NodeId::from(a)), g_dfs.get_id(NodeId::from(b)));
+}
+
+fn display_node_edges(g_dfs : &HashGraph, h : &HandleGraph::NodeHandle) {
+    print!("node {}", g_dfs.get_id(h));
+    g_dfs.follow_edges(
+        h, Direction::Right,
+        |n| {show_edge(&g_dfs,h,n)}
+    );
+} //TODO: complete this function
+
+//TODO: complete these function
+//fn print_all_paths_util()
+//fn print_all_paths()
 
 fn main() {
 
@@ -196,18 +214,98 @@ fn main() {
             let path_and_pos_map = node_id_to_path_and_pos_map[node_id];
             println!("Node_id : {}", node_id);
 
-            for (path, pos) in path_and_pos_map {
+            for (path, pos) in path_and_pos_map.iter() {
                 println!("Path: {}  -- Pos: {}", path, pos);
             }
         }
 
         let start_node = graph.get_handle(NodeId::from(1), false);
 
-        //let g_dfs = Vec::new(); //Will be used a stack for DFS
-        //Not an array as comment states, but a graph/tree
-        //let g_dfs = petgraph::Graph::new();
+        let g_dfs = HashGraph::new();
 
-        //dfs(graph,1);
+        dfs(&graph, &g_dfs, 1);
+
+        g_dfs.for_each_handle(display_node_edges);
+
+        let value = bfs_distances(g_dfs, 1);
+
+        let distances_map = value[0];
+        let ordered_node_id_list = value[1];
+
+        for (node_id, distance) in distances_map.iter() {
+            println!("{} - distance from root: {}", node_id, distance);
+        }
+
+        let dist_to_num_nodes = HashMap::new();
+
+        for (node_id, distance) in distances_map.iter() {
+            if !distances_map.contains_key(distance) {
+                dist_to_num_nodes[distance] = 0;
+            }
+            dist_to_num_nodes[distance] += 1;
+        }
+
+        print!("Distance from root --> Num. nodes");
+        for (k,v) in dist_to_num_nodes.iter() {
+            println!("{} --> {}", k, v);
+        }
+
+        println!("Bubbles");
+        let possible_bubbles_list = Vec::new();
+        let first_bubble = true;
+
+        for node_id in ordered_node_id_list {
+            let key = distances_map[node_id];
+            if dist_to_num_nodes[key] == 1 {
+                if !first_bubble {
+                    //println!("{} END {} {}", node_id, node_id_to_path_and_pos_map[node_id],g_dfs.get_sequence(g_dfs.get_handle(node_id)));
+                    // REMOVE value here
+                }
+                first_bubble = false;
+                //println!("{} START {}");
+            }     
+        } //TODO: complete this
+
+        println!("\n------------------");
+
+        let path_to_sequence_map = HashMap::new();
+        for (path_name, steps_list) in path_to_steps_map.iter() {
+            path_to_sequence_map[path_name] = String::new();
+
+            for node_id_rev in steps_list {
+                path_to_sequence_map[path_name].push_str(graph.get_sequence(graph.get_handle(&node_id_rev, false)));
+            }
+        }
+
+        let stuff_to_alts_dict = HashMap::new();
+        for current_ref in path_to_steps_map.keys() {
+            
+            let path = Vec::new(); //TODO: fix this variable
+
+            for (start,end) in possible_bubbles_list[0:possible_bubbles_list.len()-1] {
+                println!("ref_path: {}",ref_path);
+                println!("Bubble [{},{}]",start, end);
+                start_node_index_in_ref_path = ref_path.index(start);
+                let all_path_list = Vec::new();
+                //print_all_paths(g, start, end, all_path_list)
+
+                for path in all_path_list {
+                    println!("\tPath: {}", path);
+                    let pos_ref = node_id_to_path_and_pos_map[tart][current_ref]+1;
+                    let pos_path = pos_ref;
+
+                    println!("Start paths position: {}",pos_ref);
+
+                    let max_index = min(path.len(), ref_path.len());
+                    let current_index_step_path = 0;
+                    let current_index_step_ref = 0;
+
+                    //TODO: complete this
+                }
+
+            }
+        }
+
 
         //Find variations
         //let variations = find_variants(&graph, &reference);
