@@ -4,9 +4,8 @@ use std::path::PathBuf;
 use handlegraph::graph::HashGraph;
 use handlegraph::graph::{PathId, PathStep};
 use handlegraph::handlegraph::HandleGraph;
-use handlegraph::handle::{NodeId,Handle, Direction};
+use handlegraph::handle::{NodeId,Direction,Handle};
 use handlegraph::pathgraph::PathHandleGraph;
-use gfa::gfa::GFA;
 use std::fs::File;
 use std::io::Write;
 extern crate clap;
@@ -14,7 +13,6 @@ extern crate clap;
 extern crate chrono;
 use chrono::Utc;
 use std::io::{BufReader,BufRead};
-use petgraph::Graph;
 use std::collections::VecDeque;
 use std::collections::HashSet;
 
@@ -30,14 +28,13 @@ struct Variant {
     info: String,
 }
 
-// Why doesn't this work?
 fn process_step(g : &HashGraph, s : &PathStep) -> String {
     let h = g.get_handle_of_step(s);
     let is_rev = h.is_reverse();
     let id = h.id();
     
-    // Should be converted to u64 and then String?
-    let result = String::from(id);
+    //Added display trait in rs-handlegraph
+    let result = id.to_string();
     
     if is_rev == true {
         result.push_str("+");
@@ -48,7 +45,7 @@ fn process_step(g : &HashGraph, s : &PathStep) -> String {
     result
 }
 
-fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<String>>,  path : &PathStep, step : &PathId) {
+fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<String>>,  path : &PathId, step : &PathStep) {
     let path_name = g.get_path_name(path);
     if !path_to_steps.contains_key(path_name) {
         path_to_steps[path_name] = Vec::new();
@@ -58,20 +55,20 @@ fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<Stri
 
 
 // TODO: fix last argument
-fn create_edge_and_so_on(g : &HashGraph, g_dfs : &HashGraph, handle1 : &PathStep, handle2 : &PathStep, so_on_function : &dyn Fn(&HashGraph, &HashGraph::NodeHandle), args : &Vec<String>) {
+fn create_edge_and_so_on(g : &HashGraph, g_dfs : &HashGraph, handle1 : &Handle, handle2 : &Handle, so_on_function : &dyn Fn(&HashGraph, &Handle), args : &Vec<String>) {
     let handle1_id = g.get_id(handle1);
     let handle2_id = g.get_id(handle2); 
 
     if !g_dfs.has_node(handle2_id) {
         so_on_function(args[0],args[1]);
         
-        if !g_dfs.has_node(handle1) {
+        if !g_dfs.has_node(handle1.id()) {
             g_dfs.create_handle(
                 g.get_sequence(handle1), 
                 handle1_id);
         }
     
-        if !g_dfs.has_node(handle2) {
+        if !g_dfs.has_node(handle2.id()) {
             g_dfs.create_handle(
                 g.get_sequence(handle2), 
                 handle2_id);
@@ -81,16 +78,17 @@ fn create_edge_and_so_on(g : &HashGraph, g_dfs : &HashGraph, handle1 : &PathStep
     }
 }
 //TODO: see create_edge_and_so_on
-fn dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : &PathId) {
+fn dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : NodeId) {
     let current_node = g.get_handle(node_id, false);
     let sequence_node = g.get_sequence(&current_node);
 
+    //TODO: fix this
     g.follow_edges(
         &current_node, 
         Direction::Right,  //What should go here?
         |neighbor| {
             create_edge_and_so_on(
-                &g, &g_dfs, &current_node, &neighbor, &dfs, g.get_id(neighbor));
+                &g, &g_dfs, &current_node, &neighbor, &dfs(g, g_dfs, neighbor), g.get_id(neighbor));
             true
         });
 }
@@ -105,8 +103,8 @@ fn calculate_distance(visited_node_id_set : HashSet<String>, prev_node_id : Stri
 }
 
 // This function can be optimized via closures!
-fn bfs_distances(g : &HashGraph, starting_node_id : &PathId) {
-    let visited_node_id_set = HashSet::new();
+fn bfs_distances(g : &HashGraph, starting_node_id : &PathId, distances_map : &HashMap<u64, u64>) {
+    let mut visited_node_id_set : HashSet<u64> = HashSet::new();
     let node_id_list = Vec::new();
     g.for_each_handle(|h| true);
 
@@ -118,8 +116,8 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &PathId) {
     //TODO: complete this function
 }
 
-fn show_edge(g_dfs : &HashGraph, a : u64, b : u64) {
-     print!("{} --> {}", g_dfs.get_id(NodeId::from(a)), g_dfs.get_id(NodeId::from(b)));
+fn show_edge(g_dfs : &HashGraph, a : &Handle, b : &Handle) {
+     print!("{} --> {}", g_dfs.get_id(a), g_dfs.get_id(b));
 }
 
 fn display_node_edges(g_dfs : &HashGraph, h : &PathId) {
@@ -224,7 +222,7 @@ fn main() {
 
         let g_dfs = HashGraph::new();
 
-        dfs(&graph, &g_dfs, &1);
+        dfs(&graph, &g_dfs, NodeId::from(1));
 
         g_dfs.for_each_handle(display_node_edges);
 
