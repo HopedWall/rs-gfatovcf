@@ -46,7 +46,7 @@ fn process_step(g : &HashGraph, s : &PathStep) -> String {
     result
 }
 
-fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<String>>,  path : &PathId, step : &PathId) -> bool {
+fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<String>>,  path : &PathId, step : &PathStep) -> bool {
     let path_name = g.get_path_name(path);
     if !path_to_steps.contains_key(path_name) {
         path_to_steps[path_name] = Vec::new();
@@ -99,12 +99,12 @@ fn dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : &NodeId) {
         });
 }
 
-fn calculate_distance(visited_node_id_set : HashSet<String>, prev_node_id : String, neighbour_id : String, Q : VecDeque<String>, distances_map : HashMap<String,u64>) {
+fn calculate_distance(visited_node_id_set : &HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, Q : &VecDeque<NodeId>, distances_map : &HashMap<NodeId,u64>) {
     if !visited_node_id_set.contains(&neighbour_id) {
         distances_map[&neighbour_id] = distances_map[&prev_node_id] + 1;
         // is push_back correct?
-        Q.push_back(neighbour_id);
-        visited_node_id_set.insert(neighbour_id);
+        Q.push_back(*neighbour_id);
+        visited_node_id_set.insert(*neighbour_id);
     }
 }
 
@@ -114,9 +114,12 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId, distances_map : &Ha
     let ordered_node_id_list = Vec::new();
     let distances_map : HashMap<NodeId, u64> = HashMap::new();
     let node_id_list = Vec::new();
-    g.for_each_handle(|h| true); //TODO: complete this
+    g.for_each_handle(|h| {
+        node_id_list.push(g.get_id(h));
+        true
+    });
     for node_id in node_id_list {
-        distances_map[node_id] = 0;
+        distances_map[&node_id] = 0;
     }
     node_id_list.clear();
 
@@ -124,15 +127,15 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId, distances_map : &Ha
     Q.push_back(*starting_node_id);
     visited_node_id_set.insert(*starting_node_id);
     while !Q.is_empty() {
-        let current_node_id = Q.get(0);
-        let current_node = g.get_handle(*current_node_id.unwrap(), false);
+        let current_node_id = *Q.get(0).unwrap();
+        let current_node = g.get_handle(current_node_id, false);
         ordered_node_id_list.push(current_node_id);
 
         g.follow_edges(
             &current_node, 
             Direction::Right, 
             |neighbor| {
-                calculate_distance(visited_node_id_set, current_node_id, graph.get_id(neighbor), Q, distances_map);
+                calculate_distance(&visited_node_id_set, &current_node_id, &g.get_id(neighbor), &Q, &distances_map);
                 true
             });
     }
@@ -163,7 +166,7 @@ fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_i
         all_path_list.append(&mut path_list);
     } else {
         g.follow_edges(
-            &g.get_handle_of_step(&g.get_handle(&u,false)), //What goes here?
+            &g.get_handle(*u, false), 
             Direction::Right,   //Is this correct?
             |i_node| {
                 print_all_paths_util(g, &g.get_id(i_node), d, visited_node_id_set, path_list, all_path_list);
@@ -228,11 +231,16 @@ fn main() {
         //let path_to_steps_map : HashMap<PathStep, Vec<NodeId>> = HashMap::new();
         let path_to_steps_map = HashMap::new();
 
-        let get_path_to_steps = |p| {
-            graph.for_each_step_in_path(p, |s| create_into_hashmap(&graph, &path_to_steps_map, &p, &s))
-        };
-
-        graph.for_each_handle(get_path_to_steps);
+        //TODO: fix this
+        //Is this the same as for_each_path_handle?
+        graph.for_each_handle(|p| {
+            graph.for_each_step_in_path(p, 
+                                        |s| {
+                                            create_into_hashmap(&graph, &path_to_steps_map, &p, &s);
+                                            true
+                                            });
+            true
+        });
         
         let node_id_to_path_and_pos_map = HashMap::new();
         for (path_name, steps_list) in path_to_steps_map {
@@ -295,7 +303,7 @@ fn main() {
         let dist_to_num_nodes = HashMap::new();
 
         for (node_id, distance) in distances_map.iter() {
-            if !distances_map.contains_key(&distance) {
+            if !dist_to_num_nodes.contains_key(&distance) {
                 dist_to_num_nodes[distance] = 0;
             }
             dist_to_num_nodes[distance] += 1;
@@ -314,15 +322,15 @@ fn main() {
             let key = distances_map[&node_id];
             if dist_to_num_nodes[&key] == 1 {
                 if !first_bubble {
-                    println!("{} END {:?} {}", node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(g_dfs.get_handle(node_id)));
+                    println!("{} END {:?} {}", node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
                     
                     possible_bubbles_list[possible_bubbles_list.len()][1] = node_id
                 }
                 first_bubble = false;
-                println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(g_dfs.get_handle(node_id)));
-                possible_bubbles_list.append([node_id, -1]);
+                println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
+                possible_bubbles_list.append([node_id]); //TODO: fix this
             } else {
-                print!("{} Bolla {} {:?}",node_id, node_id_to_path_and_pos_map[node_id], g_dfs.get_sequence(g_dfs.get_handle(node_id)));
+                print!("{} Bolla {:?} {:?}",node_id, node_id_to_path_and_pos_map[&node_id], g_dfs.get_sequence(&g_dfs.get_handle(node_id,false)));
             }
         }
 
