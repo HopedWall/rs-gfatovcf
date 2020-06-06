@@ -229,18 +229,17 @@ fn main() {
         println!("{:?}",graph);
 
         //let path_to_steps_map : HashMap<PathStep, Vec<NodeId>> = HashMap::new();
-        let path_to_steps_map = HashMap::new();
+        let path_to_steps_map : HashMap<PathId,Vec<NodeId>> = HashMap::new();
 
         //TODO: fix this
-        //Is this the same as for_each_path_handle?
-        graph.for_each_handle(|p| {
-            graph.for_each_step_in_path(p, 
-                                        |s| {
-                                            create_into_hashmap(&graph, &path_to_steps_map, &p, &s);
-                                            true
-                                            });
-            true
-        });
+        // graph.for_each_path_handle(|p| {
+        //     graph.for_each_step_in_path(&p.0, 
+        //                                 |s| {
+        //                                     create_into_hashmap(&graph, &path_to_steps_map, &p.0, &s);
+        //                                     true
+        //                                     });
+        //     true
+        // });
         
         let node_id_to_path_and_pos_map = HashMap::new();
         for (path_name, steps_list) in path_to_steps_map {
@@ -249,7 +248,7 @@ fn main() {
             for nodeId_isRev in steps_list {
                 
                 // TODO: check what these are
-                let node_id = nodeId_isRev.parse::<u64>().unwrap();
+                let node_id = nodeId_isRev;
                 let is_rev = nodeId_isRev;
 
                 // Why does get handle require 2 parameters?
@@ -289,9 +288,9 @@ fn main() {
 
         dfs(&graph, &g_dfs, &NodeId::from(1));
 
-        g_dfs.for_each_handle(display_node_edges(&g_dfs, &h));
-
-        let value = bfs_distances(&g_dfs, graph.get_handle(1,false), &HashMap::new());
+        //TODO: fix these
+        //g_dfs.for_each_handle(display_node_edges(&g_dfs, &h));
+        let value = bfs_distances(&g_dfs, graph.get_handle(1,false), &HashMap::new()); 
 
         let distances_map = value.0;
         let ordered_node_id_list = value.1;
@@ -395,7 +394,7 @@ fn main() {
                                 let node_seq_ref = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
                                 let prec_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path - 1];
                                 let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref, false));
-                                let key = [*current_ref, (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
+                                let key = [*current_ref.to_string(), (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
                                 if !stuff_to_alts_dict.contains_key(&key) {
                                     stuff_to_alts_dict[&key] = HashSet::new();
                                 }
