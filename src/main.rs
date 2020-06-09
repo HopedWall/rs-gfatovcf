@@ -55,8 +55,7 @@ fn process_step(g : &HashGraph, h : &Handle) -> String {
         path_to_steps.insert(String::from(path_name), Vec::new());
     }
     println!("Something: {:?}",path_to_steps.get(path_name).unwrap());
-    //.push(process_step(g, step));
-    //path_to_steps[path_name].push(process_step(g,step));
+    path_to_steps.get_mut(path_name).unwrap().push(process_step(g, step));
     true
 }
 
@@ -535,4 +534,32 @@ fn write_to_file(path: &PathBuf, variations: &Vec<Variant>) -> std::io::Result<(
         file.write(to_write.as_bytes()).expect("Error writing variant");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use handlegraph::graph::HashGraph;
+    use handlegraph::handlegraph::HandleGraph;
+    
+    #[test]
+    fn test_for_each_path_handle() {
+        let mut graph = HashGraph::new();
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("CG");
+        let h3 = graph.append_handle("T");
+
+        graph.create_edge(&h1, &h2);
+        graph.create_edge(&h2, &h3);
+
+        let mut count = 0;
+
+        graph.for_each_handle(|p| {
+            //println!("p is: {:?}",p);
+            |count : u32| count+1; true
+            //true
+        });
+
+        assert_eq!(1,count);
+
+    }
 }
