@@ -57,24 +57,24 @@ fn create_into_hashmap(g : &HashGraph, path_to_steps : &mut HashMap<String, Vec<
     true
 }
 
-
-// TODO: fix last argument, currently removed
-fn create_edge_and_so_on(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &Handle, handle2 : &Handle) {
+fn create_edge_and_so_on(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &Handle, handle2 : &Handle, neighbor_node_id : &NodeId) {
     let handle1_id = g.get_id(handle1);
     let handle2_id = g.get_id(handle2); 
     println!("Create edge from {} to {}",handle1_id,handle2_id);
 
     if !g_dfs.has_node(handle2_id) {
         println!("g_dfs does not have node: {}",handle2_id);
-        dfs(g,g_dfs,&handle2_id);
+        dfs(g,g_dfs,neighbor_node_id);
         
-        if !g_dfs.has_node(handle1.id()) {
+        if !g_dfs.has_node(handle1_id) {
+            println!("Add node {}",handle1_id);
             g_dfs.create_handle(
                 g.get_sequence(handle1), 
                 handle1_id);
         }
     
-        if !g_dfs.has_node(handle2.id()) {
+        if !g_dfs.has_node(handle2_id) {
+            println!("Add node {}",handle2_id);
             g_dfs.create_handle(
                 g.get_sequence(handle2), 
                 handle2_id);
@@ -83,24 +83,36 @@ fn create_edge_and_so_on(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &Hand
         g_dfs.create_edge(handle1, handle2)
     }
 }
-//TODO: see create_edge_and_so_on
 fn dfs(g : &HashGraph, g_dfs : &mut HashGraph, node_id : &NodeId) {
     let current_node = g.get_handle(*node_id, false);
-    let sequence_node = g.get_sequence(&current_node);
+    //let sequence_node = g.get_sequence(&current_node);
 
-    //TODO: fix this
     g.follow_edges(
         &current_node, 
         Direction::Right,  //What should go here?
         |neighbor| {
             create_edge_and_so_on(
                 &g, g_dfs, 
-                &current_node, &neighbor);
+                &current_node, neighbor,
+                &g.get_id(neighbor));
                 true
         });
 }
 
+fn show_edge(g_dfs : &HashGraph, a : &Handle, b : &Handle) {
+    println!("{} --> {}", g_dfs.get_id(a), g_dfs.get_id(b));
+}
+
+fn display_node_edges(g_dfs : &HashGraph, h : &Handle) {
+   println!("node {}", g_dfs.get_id(h));
+   g_dfs.follow_edges(
+       h, Direction::Right,
+       |n| {show_edge(&g_dfs,h,n); true}
+   );
+}
+
 fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, Q : &mut VecDeque<NodeId>, distances_map : &mut HashMap<NodeId,u64>) {
+    
     if !visited_node_id_set.contains(&neighbour_id) {
         let previous_value = distances_map.get(prev_node_id).unwrap() + 1;
         distances_map.insert(*neighbour_id, previous_value);
@@ -143,18 +155,6 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId, distances_map : &Ha
     }
 
     (distances_map, ordered_node_id_list)
-}
-
-fn show_edge(g_dfs : &HashGraph, a : &Handle, b : &Handle) {
-     println!("{} --> {}", g_dfs.get_id(a), g_dfs.get_id(b));
-}
-
-fn display_node_edges(g_dfs : &HashGraph, h : &Handle) {
-    println!("node {}", g_dfs.get_id(h));
-    g_dfs.follow_edges(
-        h, Direction::Right,
-        |n| {show_edge(&g_dfs,h,n); true}
-    );
 }
 
 fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_id_set : &mut HashSet<NodeId>, path_list : &mut Vec<NodeId>, all_path_list : &mut Vec<NodeId>) {
@@ -289,10 +289,10 @@ fn main() {
 
         for node_id in sorted.keys() {
             let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
-            println!("Node_id : {}", node_id);
+            //println!("Node_id : {}", node_id);
 
             for (path, pos) in path_and_pos_map.unwrap() {
-                println!("Path: {}  -- Pos: {}", path, pos);
+                //println!("Path: {}  -- Pos: {}", path, pos);
             }
         }
 
@@ -310,14 +310,15 @@ fn main() {
                                     display_node_edges(&g_dfs, &h);
                                     true
                                   });
-    //     let value = bfs_distances(&g_dfs, &NodeId::from(1), &HashMap::new()); 
+        
+        //let value = bfs_distances(&g_dfs, &NodeId::from(1), &HashMap::new()); 
 
-    //     let distances_map = value.0;
-    //     let ordered_node_id_list = value.1;
+        // let distances_map = value.0;
+        // let ordered_node_id_list = value.1;
 
-    //     for (node_id, distance) in distances_map.iter() {
-    //         println!("{} - distance from root: {}", node_id, distance);
-    //     }
+        // for (node_id, distance) in distances_map.iter() {
+        //     println!("{} - distance from root: {}", node_id, distance);
+        // }
 
     //     let mut dist_to_num_nodes : HashMap<u64,usize> = HashMap::new();
 
@@ -585,6 +586,10 @@ mod tests {
             display_node_edges(&g_dfs, &h);
             true
         });
+
+        println!("{:?}",graph);
+        println!("{:?}",g_dfs);
+
         assert_eq!(1,1);
     }
 
@@ -607,6 +612,9 @@ mod tests {
             display_node_edges(&g_dfs, &h);
             true
         });
+
+        println!("{:?}",g_dfs);
+
         assert_eq!(1,1);
     }
 }
