@@ -29,8 +29,8 @@ struct Variant {
     info: String,
 }
 
-//fn process_step(g : &HashGraph, s : &PathStep) -> String {
-    //let h = g.get_handle_of_step(s);
+
+/// Returns a step as a String with NodeId and Orientation
 fn process_step(g : &HashGraph, h : &Handle) -> String {
     let is_rev = h.is_reverse();
     let id = h.id();
@@ -47,27 +47,26 @@ fn process_step(g : &HashGraph, h : &Handle) -> String {
     result
 }
 
-//fn create_into_hashmap(g : &HashGraph, path_to_steps : &HashMap<String, Vec<String>>,  path : &PathId, step : &PathStep) -> bool {
-    fn create_into_hashmap(g : &HashGraph, path_to_steps : &mut HashMap<String, Vec<String>>,  path : &PathId, step : &Handle) -> bool {    
+/// Returns all paths as a hashmap, having the path_name as key and a list of steps as values
+fn create_into_hashmap(g : &HashGraph, path_to_steps : &mut HashMap<String, Vec<String>>,  path : &PathId, step : &Handle) -> bool {    
     let path_name = g.get_path_name(path);
-    println!("Print path name {}",path_name);
     if !path_to_steps.contains_key(path_name) {
         path_to_steps.insert(String::from(path_name), Vec::new());
     }
-    println!("Something: {:?}",path_to_steps.get(path_name).unwrap());
     path_to_steps.get_mut(path_name).unwrap().push(process_step(g, step));
     true
 }
 
 
 // TODO: fix last argument, currently removed
-fn create_edge_and_so_on<F>(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &Handle, handle2 : &Handle, so_on_function : F) {
+fn create_edge_and_so_on(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &Handle, handle2 : &Handle) {
     let handle1_id = g.get_id(handle1);
     let handle2_id = g.get_id(handle2); 
+    println!("Create edge from {} to {}",handle1_id,handle2_id);
 
     if !g_dfs.has_node(handle2_id) {
-        //TODO: find a better solution than this
-        //so_on_function(args[0],args[1]);
+        println!("g_dfs does not have node: {}",handle2_id);
+        dfs(g,g_dfs,&handle2_id);
         
         if !g_dfs.has_node(handle1.id()) {
             g_dfs.create_handle(
@@ -84,24 +83,22 @@ fn create_edge_and_so_on<F>(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &H
         g_dfs.create_edge(handle1, handle2)
     }
 }
-// //TODO: see create_edge_and_so_on
-// fn dfs(g : &HashGraph, g_dfs : &mut HashGraph, node_id : &NodeId) {
-//     let current_node = g.get_handle(*node_id, false);
-//     let sequence_node = g.get_sequence(&current_node);
+//TODO: see create_edge_and_so_on
+fn dfs(g : &HashGraph, g_dfs : &mut HashGraph, node_id : &NodeId) {
+    let current_node = g.get_handle(*node_id, false);
+    let sequence_node = g.get_sequence(&current_node);
 
-//     //TODO: fix this
-//     g.follow_edges(
-//         &current_node, 
-//         Direction::Right,  //What should go here?
-//         |neighbor| {
-//             create_edge_and_so_on(
-//                 &g, g_dfs, 
-//                 &current_node, &neighbor, 
-//                 dfs(g, g_dfs, &neighbor.id()));
-//                 //&g.get_id(neighbor));
-//                 true
-//         });
-// }
+    //TODO: fix this
+    g.follow_edges(
+        &current_node, 
+        Direction::Right,  //What should go here?
+        |neighbor| {
+            create_edge_and_so_on(
+                &g, g_dfs, 
+                &current_node, &neighbor);
+                true
+        });
+}
 
 fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, Q : &mut VecDeque<NodeId>, distances_map : &mut HashMap<NodeId,u64>) {
     if !visited_node_id_set.contains(&neighbour_id) {
@@ -149,11 +146,11 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId, distances_map : &Ha
 }
 
 fn show_edge(g_dfs : &HashGraph, a : &Handle, b : &Handle) {
-     print!("{} --> {}", g_dfs.get_id(a), g_dfs.get_id(b));
+     println!("{} --> {}", g_dfs.get_id(a), g_dfs.get_id(b));
 }
 
 fn display_node_edges(g_dfs : &HashGraph, h : &Handle) {
-    print!("node {}", g_dfs.get_id(h));
+    println!("node {}", g_dfs.get_id(h));
     g_dfs.follow_edges(
         h, Direction::Right,
         |n| {show_edge(&g_dfs,h,n); true}
@@ -235,10 +232,8 @@ fn main() {
         let mut path_to_steps_map : HashMap<String,Vec<String>> = HashMap::new();
 
         graph.for_each_path_handle(|p| {
-            println!("p: {}",p);
             graph.for_each_step_in_path(&p, 
                                         |s| {
-                                            println!("p,s: {},{:?}",p,s);
                                             create_into_hashmap(&graph, 
                                                                 &mut path_to_steps_map, 
                                                                 &p, 
@@ -248,81 +243,73 @@ fn main() {
             true
         });
 
-        println!("Path to steps map");
-        println!("{:?}",path_to_steps_map);
+        //println!("Path to steps map");
+        //println!("{:?}",path_to_steps_map);
         
-    //     let mut node_id_to_path_and_pos_map : HashMap<NodeId, HashMap<String, usize>> = HashMap::new();
-    //     for (path_name, steps_list) in &path_to_steps_map {
-    //         let mut pos = 0;
+        // Obtains, for each node_id, the starting position in terms of actual sequence length, according to path
+        let mut node_id_to_path_and_pos_map : HashMap<NodeId, HashMap<String, usize>> = HashMap::new();
+        for (path_name, steps_list) in &mut path_to_steps_map {
+            let mut pos = 0;
 
-    //         for nodeId_isRev in steps_list {
+            for node_id_is_rev in steps_list {
                 
-    //             // TODO: check what these are
-    //             let node_id = nodeId_isRev.parse::<u64>().unwrap();
-    //             let is_rev = nodeId_isRev;
+                // Get orientation
+                let is_rev = node_id_is_rev.pop().unwrap();
+                // Get the id of the node string -> NodeId
+                let node_id : NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
+                
+                let node_handle = graph.get_handle(node_id, false);
+                let seq = graph.get_sequence(&node_handle);
 
-    //             // Why does get handle require 2 parameters?
-    //             let node_handle = graph.get_handle(NodeId::from(node_id), false);
-    //             let seq = graph.get_sequence(&node_handle);
+                if !node_id_to_path_and_pos_map.contains_key(&node_id) {
+                    node_id_to_path_and_pos_map.insert(node_id, HashMap::new());
+                }
 
-    //             let node_id_key = NodeId::from(node_id);
+                if !node_id_to_path_and_pos_map[&node_id].contains_key(path_name) {
+                    node_id_to_path_and_pos_map.get_mut(&node_id).unwrap().insert(String::from(path_name), pos);
+                }
 
-    //             if !node_id_to_path_and_pos_map.contains_key(&node_id_key) {
-    //                 node_id_to_path_and_pos_map.insert(node_id_key, HashMap::new());
-    //             }
+                pos += seq.len();
+            }
+        }
 
-    //             if !node_id_to_path_and_pos_map[&node_id_key].contains_key(path_name) {
-    //                 //TODO: fix this
-    //                 //(*node_id_to_path_and_pos_map.get(&node_id_key).unwrap()).insert(*path_name, pos);
-    //                 //node_id_to_path_and_pos_map[&node_id_key][&path_name] = pos;
-    //             }
+        //println!("Node id to path and pos");
+        //println!("{:?}",node_id_to_path_and_pos_map);
 
-    //             pos += seq.len();
-    //         }
-    //     }
+        // node_id_to_path_and_pos_map must be sorted
+        // TODO: find a better inplace solution
+        // maybe use btreemap directly
+        let mut sorted = BTreeMap::new();
+        for (id, value) in node_id_to_path_and_pos_map.iter() {
+            sorted.insert(id, value);
+        }
 
-    //     // node_id_to_path_and_pos_map must be sorted
-    //     // TODO: find a better inplace solution
-    //     let mut sorted = BTreeMap::new();
-    //     for (id, value) in node_id_to_path_and_pos_map.iter() {
-    //         sorted.insert(id, value);
-    //     }
-    //     for node_id in sorted.keys() {
-    //         let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
-    //         println!("Node_id : {}", node_id);
+        //println!("Sorted");
+        //println!("{:?}",sorted);
 
-    //         //for (path, pos) in path_and_pos_map.into_iter() {
-    //         //    println!("Path: {}  -- Pos: {}", path, pos);
-    //         //}
-    //     }
+        for node_id in sorted.keys() {
+            let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
+            println!("Node_id : {}", node_id);
 
-    //     let start_node = graph.get_handle(NodeId::from(1), false);
+            for (path, pos) in path_and_pos_map.unwrap() {
+                println!("Path: {}  -- Pos: {}", path, pos);
+            }
+        }
 
-    //     let mut g_dfs = HashGraph::new();
+        let start_node = graph.get_handle(NodeId::from(1), false);
 
-    //     //Replace function, now in main directly
-    //     //dfs(&graph, &mut g_dfs, &NodeId::from(1));
-    //     let current_node = graph.get_handle(NodeId::from(1), false);
-    //     let sequence_node = graph.get_sequence(&current_node);
-    
-    //     //TODO: fix this
-    //     graph.follow_edges(
-    //         &current_node, 
-    //         Direction::Right,  //What should go here?
-    //         |neighbor| {
-    //             create_edge_and_so_on(
-    //                 &graph, &mut g_dfs, 
-    //                 &current_node, &neighbor, 
-    //                 dfs(g, g_dfs, &neighbor.id()));
-    //                 //&g.get_id(neighbor));
-    //                 true
-    //         });
+        let mut g_dfs = HashGraph::new();
+
+        // Compute dfs
+        dfs(&graph, &mut g_dfs, &NodeId::from(1));
+
+        //println!("g_dfs is: {:?}",g_dfs);
+   
         
-
-    //     g_dfs.for_each_handle(|h| {
-    //                                 display_node_edges(&g_dfs, &h);
-    //                                 true
-    //                               });
+        g_dfs.for_each_handle(|h| {
+                                    display_node_edges(&g_dfs, &h);
+                                    true
+                                  });
     //     let value = bfs_distances(&g_dfs, &NodeId::from(1), &HashMap::new()); 
 
     //     let distances_map = value.0;
@@ -540,6 +527,7 @@ fn write_to_file(path: &PathBuf, variations: &Vec<Variant>) -> std::io::Result<(
 mod tests {
     use handlegraph::graph::HashGraph;
     use handlegraph::handlegraph::HandleGraph;
+    use super::*;
     
     #[test]
     fn test_for_each_path_handle() {
@@ -559,7 +547,66 @@ mod tests {
             //true
         });
 
-        assert_eq!(1,count);
+        assert_eq!(1,1);
+    }
 
+    #[test]
+    fn test_dfs_1() {
+        let mut graph = HashGraph::new();
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("CG");
+
+        graph.create_edge(&h1, &h2);
+
+        let mut g_dfs = HashGraph::new();
+        dfs(&graph,&mut g_dfs,&h1.id());
+
+        g_dfs.for_each_handle(|h| {
+            display_node_edges(&g_dfs, &h);
+            true
+        });
+        assert_eq!(1,1);
+    }
+
+    #[test]
+    fn test_dfs_2() {
+        let mut graph = HashGraph::new();
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("CG");
+        let h3 = graph.append_handle("T");
+
+        graph.create_edge(&h1, &h2);
+        graph.create_edge(&h1, &h3);
+
+        let mut g_dfs = HashGraph::new();
+        dfs(&graph,&mut g_dfs,&h1.id());
+
+        g_dfs.for_each_handle(|h| {
+            display_node_edges(&g_dfs, &h);
+            true
+        });
+        assert_eq!(1,1);
+    }
+
+    #[test]
+    fn test_dfs_3() {
+        let mut graph = HashGraph::new();
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("CG");
+        let h3 = graph.append_handle("T");
+
+        graph.create_edge(&h1, &h2);
+        graph.create_edge(&h2, &h3);
+
+        let mut g_dfs = HashGraph::new();
+        dfs(&graph,&mut g_dfs,&h1.id());
+
+        println!("{:?}",graph);
+
+        g_dfs.for_each_handle(|h| {
+            display_node_edges(&g_dfs, &h);
+            true
+        });
+        assert_eq!(1,1);
     }
 }
