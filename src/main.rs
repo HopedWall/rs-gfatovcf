@@ -248,8 +248,8 @@ fn main() {
             true
         });
 
-        //println!("Path to steps map");
-        //println!("{:?}",path_to_steps_map);
+        println!("Path to steps map");
+        println!("{:?}",path_to_steps_map);
         
         // Obtains, for each node_id, the starting position in terms of actual sequence length, according to path
         let mut node_id_to_path_and_pos_map : HashMap<NodeId, HashMap<String, usize>> = HashMap::new();
@@ -381,25 +381,38 @@ fn main() {
 
         println!("\n------------------");
 
-    //     //TODO: fix this
-    //     let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
-    //     for (path_name, steps_list) in &path_to_steps_map {
-    //         path_to_sequence_map.insert(path_name.to_string(), String::new());
+        let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
+        for (path_name, steps_list) in &path_to_steps_map {
+            path_to_sequence_map.insert(path_name.to_string(), String::new());
 
-    //          for node_id_rev in steps_list {
-    //              //path_to_sequence_map[path_name].push_str(graph.get_sequence(&graph.get_handle(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false)));
-    //          }
-    //    }
+             for node_id_rev in steps_list {
+                 path_to_sequence_map.get_mut(path_name).unwrap().push_str(graph.get_sequence(&graph.get_handle(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false)));
+             }
+       }
 
-    //     let mut stuff_to_alts_dict : HashMap<String, HashSet<String>>  = HashMap::new();
-    //     for current_ref in path_to_steps_map.keys() {
+       println!("Path to sequence: {:?}",path_to_sequence_map);
+
+        let mut stuff_to_alts_dict : HashMap<String, HashSet<String>>  = HashMap::new();
+        for current_ref in path_to_steps_map.keys() {
             
-    //         let ref_path = Vec::new(); //TODO: fix this variable
+            //TODO: maybe rewrite in a more compact way
+            let mut ref_path = Vec::new();
+            println!("path_to_steps_map: {:?}",path_to_steps_map);
+            for x in &path_to_steps_map[current_ref] {
+                //println!("x: {:?}",x);
+                //ref_path.push(&x[0..x.len()-1]);
+                //println!("{:?}",ref_path);
 
-    //         let length = 0;
-    //         //let length = possible_bubbles_list.len();
-    //         //TODO: needs to stop at -1
-    //         //TODO: check this
+                // Do not remove orientation since already pop()'ed
+                // is this correct?
+                ref_path.push(x);
+            }
+
+
+            let length = 0;
+ 
+    //         // Remove last element, equivalent to [:-1]
+    //         possible_bubbles_list.pop();
     //         for (start,end) in &possible_bubbles_list {
                 
     //             println!("ref_path: {:?}",ref_path);
@@ -501,7 +514,7 @@ fn main() {
     //             }   
     //         }
     //         println!("==========================================");
-    //    }
+        }
 
 
         //Find variations
