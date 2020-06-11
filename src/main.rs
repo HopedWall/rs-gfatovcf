@@ -57,6 +57,7 @@ fn create_into_hashmap(g : &HashGraph, path_to_steps : &mut HashMap<String, Vec<
     true
 }
 
+/// Adds edges to DFS
 fn create_edge_and_so_on(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &Handle, handle2 : &Handle, neighbor_node_id : &NodeId) {
     let handle1_id = g.get_id(handle1);
     let handle2_id = g.get_id(handle2); 
@@ -83,6 +84,7 @@ fn create_edge_and_so_on(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &Hand
         g_dfs.create_edge(handle1, handle2)
     }
 }
+/// Computes the DFS of a given HashGraph
 fn dfs(g : &HashGraph, g_dfs : &mut HashGraph, node_id : &NodeId) {
     let current_node = g.get_handle(*node_id, false);
     //let sequence_node = g.get_sequence(&current_node);
@@ -99,10 +101,11 @@ fn dfs(g : &HashGraph, g_dfs : &mut HashGraph, node_id : &NodeId) {
         });
 }
 
+/// Prints an edge of a given HashGraph
 fn show_edge(g_dfs : &HashGraph, a : &Handle, b : &Handle) {
     println!("{} --> {}", g_dfs.get_id(a), g_dfs.get_id(b));
 }
-
+/// Prints all nodes and edges of a given HashGraph
 fn display_node_edges(g_dfs : &HashGraph, h : &Handle) {
    println!("node {}", g_dfs.get_id(h));
    g_dfs.follow_edges(
@@ -111,37 +114,39 @@ fn display_node_edges(g_dfs : &HashGraph, h : &Handle) {
    );
 }
 
-fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, Q : &mut VecDeque<NodeId>, distances_map : &mut HashMap<NodeId,u64>) {
+/// Calculates the distance
+fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, q : &mut VecDeque<NodeId>, distances_map : &mut HashMap<NodeId,u64>) {
     
     if !visited_node_id_set.contains(&neighbour_id) {
-        let previous_value = distances_map.get(prev_node_id).unwrap() + 1;
-        distances_map.insert(*neighbour_id, previous_value);
-        // is push_back correct?
-        Q.push_back(*neighbour_id);
+        let previous_value = distances_map.get(prev_node_id).unwrap();
+        distances_map.insert(*neighbour_id, *previous_value + 1);
+        q.push_back(*neighbour_id);
         visited_node_id_set.insert(*neighbour_id);
     }
 }
 
 // This function can be optimized via closures!
-fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId, distances_map : &HashMap<u64, u64>) -> (HashMap<NodeId,u64>, Vec<NodeId>) {
+/// Finds the distance of each node from root
+fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (HashMap<NodeId,u64>, Vec<NodeId>) {
     let mut visited_node_id_set : HashSet<NodeId> = HashSet::new();
-    let mut ordered_node_id_list = Vec::new();
+    let mut ordered_node_id_list : Vec<NodeId> = Vec::new();
+    
     let mut distances_map : HashMap<NodeId, u64> = HashMap::new();
     let mut node_id_list = Vec::new();
     g.for_each_handle(|h| {
         node_id_list.push(g.get_id(h));
         true
     });
-    for node_id in &node_id_list {
-        distances_map.insert(*node_id, 0);
+    for node_id in node_id_list {
+        distances_map.insert(node_id, 0);
     }
-    node_id_list.clear();
+    //node_id_list.clear();
 
-    let mut Q : VecDeque<NodeId> = VecDeque::new();
-    Q.push_back(*starting_node_id);
+    let mut q : VecDeque<NodeId> = VecDeque::new();
+    q.push_back(*starting_node_id);
     visited_node_id_set.insert(*starting_node_id);
-    while !Q.is_empty() {
-        let current_node_id = *Q.get(0).unwrap();
+    while !&q.is_empty() {
+        let current_node_id = q.pop_front().unwrap();
         let current_node = g.get_handle(current_node_id, false);
         ordered_node_id_list.push(current_node_id);
 
@@ -149,7 +154,7 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId, distances_map : &Ha
             &current_node, 
             Direction::Right, 
             |neighbor| {
-                calculate_distance(&mut visited_node_id_set, &current_node_id, &g.get_id(neighbor), &mut Q, &mut distances_map);
+                calculate_distance(&mut visited_node_id_set, &current_node_id, &g.get_id(neighbor), &mut q, &mut distances_map);
                 true
             });
     }
@@ -289,10 +294,10 @@ fn main() {
 
         for node_id in sorted.keys() {
             let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
-            //println!("Node_id : {}", node_id);
+            println!("Node_id : {}", node_id);
 
             for (path, pos) in path_and_pos_map.unwrap() {
-                //println!("Path: {}  -- Pos: {}", path, pos);
+                println!("Path: {}  -- Pos: {}", path, pos);
             }
         }
 
@@ -311,54 +316,70 @@ fn main() {
                                     true
                                   });
         
-        //let value = bfs_distances(&g_dfs, &NodeId::from(1), &HashMap::new()); 
+        let (distances_map, ordered_node_id_list) = bfs_distances(&g_dfs, &NodeId::from(1)); 
+        //println!("distances map: {:?}",distances_map);
+        //println!("ordered_node_id_list: {:?}",ordered_node_id_list);
+        
+        // TODO: find a better inplace solution
+        // maybe use btreemap directly
+        let mut sorted_2 = BTreeMap::new();
+        for (id, value) in distances_map.iter() {
+            sorted_2.insert(id, value);
+        }
+        println!("\nNode --> Distance from root");
+        for (node_id, distance) in sorted_2.iter() {
+            println!("{} - distance from root: {}", node_id, distance);
+        }
 
-        // let distances_map = value.0;
-        // let ordered_node_id_list = value.1;
+        let mut dist_to_num_nodes : HashMap<u64,usize> = HashMap::new();
 
-        // for (node_id, distance) in distances_map.iter() {
-        //     println!("{} - distance from root: {}", node_id, distance);
-        // }
+        for (_, distance) in distances_map.iter() {
+            if !dist_to_num_nodes.contains_key(&distance) {
+                dist_to_num_nodes.insert(*distance,0);
+            }
+            *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
+        }
 
-    //     let mut dist_to_num_nodes : HashMap<u64,usize> = HashMap::new();
+        
+        // TODO: find a better inplace solution
+        // maybe use btreemap directly
+        let mut sorted_3 = BTreeMap::new();
+        for (id, value) in dist_to_num_nodes.iter() {
+            sorted_3.insert(id, value);
+        }
+        
+        println!("\nDistance from root --> Num. nodes");
+        for (k,v) in sorted_3.iter() {
+            println!("{} --> {}", k, v);
+        }
 
-    //     for (_, distance) in distances_map.iter() {
-    //         if !dist_to_num_nodes.contains_key(&distance) {
-    //             dist_to_num_nodes.insert(*distance,0);
-    //         }
-    //         *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
-    //     }
+        println!("\nBubbles");
+        let mut possible_bubbles_list : Vec<(NodeId,NodeId)> = Vec::new();
+        let mut first_bubble = true;
 
-    //     print!("Distance from root --> Num. nodes");
-    //     for (k,v) in dist_to_num_nodes.iter() {
-    //         println!("{} --> {}", k, v);
-    //     }
-
-    //     println!("Bubbles");
-    //     let mut possible_bubbles_list : Vec<(NodeId,NodeId)> = Vec::new();
-    //     let mut first_bubble = true;
-
-    //     for node_id in ordered_node_id_list {
-    //         let mut pair : (NodeId,NodeId) = (NodeId::from(0),NodeId::from(0));
-    //         let key = distances_map[&node_id];
-    //         if dist_to_num_nodes[&key] == 1 {
-    //             if !first_bubble {
-    //                 println!("{} END {:?} {}", node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
+        for node_id in ordered_node_id_list {
+            let mut pair : (NodeId,NodeId) = (NodeId::from(0),NodeId::from(0));
+            let key = distances_map[&node_id];
+            if dist_to_num_nodes[&key] == 1 {
+                if !first_bubble {
+                    println!("{} END {:?} {}", node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
                     
-    //                 //possible_bubbles_list[possible_bubbles_list.len()][1] = node_id
-    //                 pair.0 = node_id;
-    //                 //possible_bubbles_list.push(node_id);
-    //             }
-    //             first_bubble = false;
-    //             println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
-    //             pair.1 = node_id;
-    //             possible_bubbles_list.push(pair); //TODO: fix this
-    //         } else {
-    //             print!("{} Bolla {:?} {:?}",node_id, node_id_to_path_and_pos_map[&node_id], g_dfs.get_sequence(&g_dfs.get_handle(node_id,false)));
-    //         }
-    //     }
+                    let latest_bubble = possible_bubbles_list.last_mut().unwrap();
+                    latest_bubble.1 = node_id;
+                }
+                first_bubble = false;
+                println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
+                pair.0 = node_id;
+                possible_bubbles_list.push(pair); //Ok, pair.2 is a placeholder
+                println!("Possible bubbles: {:?}",possible_bubbles_list);
+            } else {
+                println!("{} Bubble {:?} {:?}",node_id, node_id_to_path_and_pos_map[&node_id], g_dfs.get_sequence(&g_dfs.get_handle(node_id,false)));
+            }
+        }
 
-    //     println!("\n------------------");
+        println!("Possible bubbles list: {:?}",possible_bubbles_list);
+
+        println!("\n------------------");
 
     //     //TODO: fix this
     //     let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
