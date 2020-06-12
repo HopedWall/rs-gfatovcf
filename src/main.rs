@@ -16,6 +16,7 @@ use std::io::{BufReader,BufRead};
 use std::collections::VecDeque;
 use std::collections::HashSet;
 use std::cmp;
+use std::iter::FromIterator;
 
 
 struct Variant {
@@ -536,17 +537,33 @@ fn main() {
             println!("==========================================");
         }
 
-        // let vcf_list = Vec::new();
-        // for (chrom_pos_ref, alt_type_set) in stuff_to_alts_dict {
-        //      let split = chrom_pos_ref.split("_");
-        //      let vec: Vec<&str> = split.collect();
+        let mut vcf_list : Vec<Vec<String>> = Vec::new();
+        for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_dict {
              
-        //      let alt_list : Vec<String> = Vec::new();
-        //      for x in alt_type_set {
+             let vec: Vec<&str> = chrom_pos_ref.split("_").collect();
+             let chrom = vec[0];
+             let pos = vec[1];
+             let refr = vec[2];
+             
+             let mut alt_list : Vec<String> = Vec::new();
+             for x in alt_type_set {
+                let mut split : Vec<&str> = x.split("_").collect();
+                alt_list.push(String::from(split[0]));
+             }
+             
+             //let type_set : HashSet<String> = HashSet::new(); 
+             let mut type_set : Vec<&str> = Vec::new();
+             for x in alt_type_set {
+                let mut split : Vec<&str> = x.split("_").collect();
+                //type_set.insert(String::from(split[1]));
+                type_set.push(split[1]);
+             }
 
-        //      }
-
-        //  }
+             let alts = alt_list.join(",");
+             let types = type_set.join(";TYPE=");
+             let list_to_append = [chrom, pos,".",refr,&alts,".",".", "TYPE=",&types, "GT", "0|1"];
+             vcf_list.push(Vec::from_iter(list_to_append.iter().map(|&x| String::from(x))));
+        }
 
 
         //Find variations
