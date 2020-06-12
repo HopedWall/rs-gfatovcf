@@ -162,7 +162,7 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (HashMap<NodeId,
     (distances_map, ordered_node_id_list)
 }
 
-fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_id_set : &mut HashSet<NodeId>, path_list : &mut Vec<NodeId>, all_path_list : &mut Vec<NodeId>) {
+fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_id_set : &mut HashSet<NodeId>, path_list : &mut Vec<NodeId>, all_path_list : &mut Vec<Vec<NodeId>>) {
     if !visited_node_id_set.contains(&u) {
         visited_node_id_set.insert(*u);
         path_list.push(*u);
@@ -170,7 +170,8 @@ fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_i
 
     //What does == mean exactly?
     if u == d {
-        all_path_list.append(path_list);
+        //TODO: check this
+        all_path_list.push(path_list.to_vec());
     } else {
         g.follow_edges(
             &g.get_handle(*u, false), 
@@ -183,10 +184,9 @@ fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_i
 
     path_list.pop();
     visited_node_id_set.remove(&u);
-        
 }
 
-fn print_all_paths(g : &HashGraph, start_node_id : &NodeId, end_node_id : &NodeId, all_path_list : &mut Vec<NodeId>) {
+fn print_all_paths(g : &HashGraph, start_node_id : &NodeId, end_node_id : &NodeId, all_path_list : &mut Vec<Vec<NodeId>>) {
     let mut visited_node_id_set : HashSet<NodeId> = HashSet::new();
     
     let mut path_list : Vec<NodeId> = Vec::new();
@@ -405,116 +405,148 @@ fn main() {
 
                 // Do not remove orientation since already pop()'ed
                 // is this correct?
-                ref_path.push(x);
+                ref_path.push(x.parse::<u64>().unwrap());
             }
 
 
             let length = 0;
  
-    //         // Remove last element, equivalent to [:-1]
-    //         possible_bubbles_list.pop();
-    //         for (start,end) in &possible_bubbles_list {
+            // Remove last element, equivalent to [:-1]
+            possible_bubbles_list.pop();
+            for (start,end) in &possible_bubbles_list {
                 
-    //             println!("ref_path: {:?}",ref_path);
-    //             println!("Bubble [{},{}]",start, end);
+                println!("ref_path: {:?}",ref_path);
+                println!("Bubble [{},{}]",start, end);
                 
-    //             //TODO: Fix this
-    //             //Find position of start in path
-    //             //let start_node_index_in_ref_path = ref_path.iter().position(|&r| r == start).unwrap();
-    //             let mut start_node_index_in_ref_path = 0;
-    //             let mut all_path_list : Vec<Vec<NodeId>> = Vec::new();
-    //             //print_all_paths(g, start, end, all_path_list)
+                //TODO: Fix this
+                //Find position of start in path
+                let start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
+                let mut start_node_index_in_ref_path = 0;
+                let mut all_path_list : Vec<Vec<NodeId>> = Vec::new();
+                print_all_paths(&graph, start, end, &mut all_path_list);
 
-    //             for path in all_path_list {
-    //                 println!("\tPath: {:?}", path);
-    //                 let mut pos_ref = node_id_to_path_and_pos_map[&start][current_ref]+1;
-    //                 let mut pos_path = pos_ref;
+                for path in all_path_list {
+                    println!("\tPath: {:?}", path);
+                    let mut pos_ref = node_id_to_path_and_pos_map[&start][current_ref]+1;
+                    let mut pos_path = pos_ref;
 
-    //                 println!("Start paths position: {}",pos_ref);
-    //                 //TODO: fix this
-    //                 //let max_index = cmp::min(path.len(), ref_path.len());
-    //                 let mut max_index = ref_path.len();
-    //                 let mut current_index_step_path = 0;
-    //                 let mut current_index_step_ref = 0;
+                    println!("Start paths position: {}",pos_ref);
 
-    //                 for i in 0..max_index {
+                    let mut max_index = if path.len() < ref_path.len() {path.len()} else {ref_path.len()};
+                    let mut current_index_step_path = 0;
+                    let mut current_index_step_ref = 0;
 
-    //                     let mut current_node_id_path = path[current_index_step_path];
-    //                     let mut current_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path];
+                    for i in 0..max_index {
+
+                        let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
+                        let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
                     
-    //                     println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
+                        println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
                         
-    //                     if current_node_id_ref == current_node_id_path {
-    //                         println!("REFERENCE");
-    //                         //let node_seq = graph.get_sequence(&graph.get_handle(*current_node_id_ref, false));
-    //                         //pos_ref += node_seq.len();
-    //                         pos_path = pos_ref;
-    //                         current_index_step_ref += 1;
-    //                         current_index_step_path += 1;
-    //                     } else {
-    //                         let succ_node_id_path = path[current_index_step_path + 1];
-    //                         let succ_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path + 1];
-    //                         if succ_node_id_ref == current_node_id_path {
-    //                             println!("DEL");
-    //                             let node_seq_ref = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
-    //                             let prec_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path - 1];
-    //                             let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref, false));
-    //                             let key = [current_ref.to_string(), (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
-    //                             if !stuff_to_alts_dict.contains_key(&key) {
-    //                                 stuff_to_alts_dict.insert(key, HashSet::new());
-    //                             }
-    //                             //stuff_to_alts_dict[key].add(prec_nod_seq_ref. + "_del");
-    //                             pos_ref += node_seq_ref.len();
-    //                             current_index_step_ref += 1;
-    //                             current_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path -1];
-    //                             println!("\t {}", current_node_id_ref);
-    //                             continue;
-    //                         } else if succ_node_id_path == current_node_id_ref {
-    //                             println!("INS");
-    //                             let node_seq_path = graph.get_sequence(&graph.get_handle(current_node_id_path,false));
+                        if current_node_id_ref == current_node_id_path {
+                            println!("REFERENCE");
+                            let node_seq = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
+                            pos_ref += node_seq.len();
+                            pos_path = pos_ref;
+                            
+                            current_index_step_ref += 1;
+                            current_index_step_path += 1;
+                        } else {
+                            let succ_node_id_path = NodeId::from(path[current_index_step_path + 1]);
+                            let succ_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path + 1]);
+                            if succ_node_id_ref == current_node_id_path {
+                                println!("DEL");
+                                let node_seq_ref = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
                                 
-    //                             let prec_node_id_ref = ref_path[current_index_step_ref + start_node_index_in_ref_path-1];
-    //                             let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref,false));
-    //                             let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("-");
+                                let prec_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path - 1]);
+                                let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref, false));
+                                let key = [current_ref.to_string(), (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
+                                if !stuff_to_alts_dict.contains_key(&key) {
+                                    stuff_to_alts_dict.insert(key, HashSet::new());
+                                }
+                                //TODO: find a better way to do this
+                                let key = [current_ref.to_string(), (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
+                                let mut string_to_insert = String::from(prec_nod_seq_ref); //NOTE: -1 missing from here
+                                string_to_insert.push_str("_del");
+                                stuff_to_alts_dict.get_mut(&key).unwrap().insert(string_to_insert);
                                 
-    //                             if !stuff_to_alts_dict.contains_key(&key) {
-    //                                 stuff_to_alts_dict.insert(key, HashSet::new());
-    //                             }
-    //                             //stuff_to_alts_dict[key].add(prec_nod_seq_ref[-1] + node_seq_path + '_ins')
-    //                             pos_path += node_seq_path.len();
-    //                             current_index_step_path += 1;
-    //                             current_node_id_path = path[current_index_step_path];
-    //                             println!("\t{}", current_node_id_path);
-    //                             continue;
-    //                         } else {
-    //                             let node_seq_ref = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
-    //                             let node_seq_path = graph.get_sequence(&graph.get_handle(current_node_id_path, false));
-
-    //                             if node_seq_ref == node_seq_path {
-    //                                 println!("REFERENCE");
-    //                             } else {
-    //                                 println!("SNV");
-    //                             }
-
-    //                             let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("-");
-    //                             if !stuff_to_alts_dict.contains_key(&key){
-    //                                 stuff_to_alts_dict.insert(key, HashSet::new());
-    //                             }
+                                pos_ref += node_seq_ref.len();
+                                current_index_step_ref += 1;
+                                current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path -1]);
+                                println!("\t {}", current_node_id_ref);
+                                continue;
+                            } else if succ_node_id_path == current_node_id_ref {
+                                println!("INS");
+                                let node_seq_path = graph.get_sequence(&graph.get_handle(current_node_id_path,false));
                                 
-    //                             //stuff_to_alts_dict[&key].insert(String::from(node_seq_path).push_str("snv"));
+                                let prec_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path-1]);
+                                let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref,false));
+                                let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("-");
+                                if !stuff_to_alts_dict.contains_key(&key) {
+                                    stuff_to_alts_dict.insert(key, HashSet::new());
+                                }
+                                
+                                //TODO: find a better way to do this
+                                let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("-");
+                                let mut string_to_insert = String::from(prec_nod_seq_ref); //NOTE: -1 missing from here
+                                string_to_insert.push_str(node_seq_path);
+                                string_to_insert.push_str("_ins");
+                                stuff_to_alts_dict.get_mut(&key).unwrap().insert(string_to_insert);
 
-    //                             pos_ref += node_seq_ref.len();
-    //                             pos_path += node_seq_path.len();
-    //                             current_index_step_ref += 1;
-    //                             current_index_step_path += 1;
-    //                         }
-    //                     }
-    //                 }
-    //                 println!("---");
-    //             }   
-    //         }
-    //         println!("==========================================");
+                                pos_path += node_seq_path.len();
+                                
+                                current_index_step_path += 1;
+                                current_node_id_path = path[current_index_step_path];
+                                println!("\t{}", current_node_id_path);
+                                continue;
+                            } else {
+                                let node_seq_ref = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
+                                let node_seq_path = graph.get_sequence(&graph.get_handle(current_node_id_path, false));
+
+                                if node_seq_ref == node_seq_path {
+                                    println!("REFERENCE");
+                                } else {
+                                    println!("SNV");
+                                }
+
+                                let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("-");
+                                if !stuff_to_alts_dict.contains_key(&key){
+                                    stuff_to_alts_dict.insert(key, HashSet::new());
+                                }
+                                
+                                //stuff_to_alts_dict[&key].insert(String::from(node_seq_path).push_str("snv"));
+                                
+                                //TODO: find a better way to do this
+                                let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("-");
+                                let mut string_to_insert = String::from(node_seq_path); //NOTE: -1 missing from here
+                                string_to_insert.push_str("_snv");
+                                stuff_to_alts_dict.get_mut(&key).unwrap().insert(string_to_insert);
+
+
+                                pos_ref += node_seq_ref.len();
+                                pos_path += node_seq_path.len();
+                                current_index_step_ref += 1;
+                                current_index_step_path += 1;
+                            }
+                        }
+                    }
+                    println!("---");
+                }   
+            }
+            println!("==========================================");
         }
+
+        // let vcf_list = Vec::new();
+        // for (chrom_pos_ref, alt_type_set) in stuff_to_alts_dict {
+        //      let split = chrom_pos_ref.split("_");
+        //      let vec: Vec<&str> = split.collect();
+             
+        //      let alt_list : Vec<String> = Vec::new();
+        //      for x in alt_type_set {
+
+        //      }
+
+        //  }
 
 
         //Find variations
