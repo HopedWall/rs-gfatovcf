@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::collections::BTreeMap; //like hashmap but sorted
 use std::path::PathBuf;
 use handlegraph::graph::HashGraph;
-use handlegraph::graph::{PathId, PathStep};
+use handlegraph::graph::PathId;
 use handlegraph::handlegraph::HandleGraph;
 use handlegraph::handle::{NodeId,Direction,Handle};
 use handlegraph::pathgraph::PathHandleGraph;
@@ -15,7 +15,7 @@ use chrono::Utc;
 use std::io::{BufReader,BufRead};
 use std::collections::VecDeque;
 use std::collections::HashSet;
-use std::cmp;
+//use std::cmp;
 use std::iter::FromIterator;
 
 
@@ -62,21 +62,21 @@ fn create_into_hashmap(g : &HashGraph, path_to_steps : &mut HashMap<String, Vec<
 fn create_edge_and_so_on(g : &HashGraph, g_dfs : &mut HashGraph, handle1 : &Handle, handle2 : &Handle, neighbor_node_id : &NodeId) {
     let handle1_id = g.get_id(handle1);
     let handle2_id = g.get_id(handle2); 
-    println!("Create edge from {} to {}",handle1_id,handle2_id);
+    //println!("Create edge from {} to {}",handle1_id,handle2_id);
 
     if !g_dfs.has_node(handle2_id) {
-        println!("g_dfs does not have node: {}",handle2_id);
+        //println!("g_dfs does not have node: {}",handle2_id);
         dfs(g,g_dfs,neighbor_node_id);
         
         if !g_dfs.has_node(handle1_id) {
-            println!("Add node {}",handle1_id);
+            //println!("Add node {}",handle1_id);
             g_dfs.create_handle(
                 g.get_sequence(handle1), 
                 handle1_id);
         }
     
         if !g_dfs.has_node(handle2_id) {
-            println!("Add node {}",handle2_id);
+            //println!("Add node {}",handle2_id);
             g_dfs.create_handle(
                 g.get_sequence(handle2), 
                 handle2_id);
@@ -115,7 +115,7 @@ fn display_node_edges(g_dfs : &HashGraph, h : &Handle) {
    );
 }
 
-/// Calculates the distance
+/// Calculates the distance of adjacent nodes
 fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, q : &mut VecDeque<NodeId>, distances_map : &mut HashMap<NodeId,u64>) {
     
     if !visited_node_id_set.contains(&neighbour_id) {
@@ -163,6 +163,7 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (HashMap<NodeId,
     (distances_map, ordered_node_id_list)
 }
 
+/// Prints all paths between two nodes
 fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_id_set : &mut HashSet<NodeId>, path_list : &mut Vec<NodeId>, all_path_list : &mut Vec<Vec<NodeId>>) {
     if !visited_node_id_set.contains(&u) {
         visited_node_id_set.insert(*u);
@@ -187,6 +188,7 @@ fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_i
     visited_node_id_set.remove(&u);
 }
 
+/// Prints all paths in a given HashGrap, starting from a specific node and ending in another node
 fn print_all_paths(g : &HashGraph, start_node_id : &NodeId, end_node_id : &NodeId, all_path_list : &mut Vec<Vec<NodeId>>) {
     let mut visited_node_id_set : HashSet<NodeId> = HashSet::new();
     
@@ -201,13 +203,6 @@ fn main() {
     //                       .version("1.0")
     //                       .author("Francesco Porto <francesco.porto97@gmail.com>")
     //                       .about("Converts GFA to VCF")
-    //                       .arg(Arg::with_name("reference")
-    //                            .short("r")
-    //                            .long("reference")
-    //                            .value_name("FILE")
-    //                            .help("Sets the reference file to use")
-    //                            .required(true)
-    //                            .takes_value(true))
     //                       .arg(Arg::with_name("input")
     //                            .short("i")
     //                            .long("input")
@@ -393,7 +388,7 @@ fn main() {
 
        println!("Path to sequence: {:?}",path_to_sequence_map);
 
-        let mut stuff_to_alts_dict : HashMap<String, HashSet<String>>  = HashMap::new();
+        let mut stuff_to_alts_map : HashMap<String, HashSet<String>>  = HashMap::new();
         for current_ref in path_to_steps_map.keys() {
             
             //TODO: maybe rewrite in a more compact way
@@ -421,8 +416,8 @@ fn main() {
                 
                 //TODO: Fix this
                 //Find position of start in path
-                let start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
-                let mut start_node_index_in_ref_path = 0;
+                let _start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
+                let start_node_index_in_ref_path = 0;
                 let mut all_path_list : Vec<Vec<NodeId>> = Vec::new();
                 print_all_paths(&graph, start, end, &mut all_path_list);
 
@@ -433,17 +428,29 @@ fn main() {
 
                     println!("Start paths position: {}",pos_ref);
 
-                    let mut max_index = if path.len() < ref_path.len() {path.len()} else {ref_path.len()};
+                    let max_index = if path.len() < ref_path.len() {path.len()} else {ref_path.len()};
+                    
+                    println!("\nDEBUG:");
+                    println!("Path: {:?}", path);
+                    println!("Ref_Path: {:?}\n", ref_path);
+                    //println!("path: {} ref_path: {}", path.len(), ref_path.len());
+                    //println!("max_index: {}",max_index);
+
                     let mut current_index_step_path = 0;
                     let mut current_index_step_ref = 0;
 
-                    for i in 0..max_index {
+                    for _i in 0..max_index {
 
                         let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
                         let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
                     
                         println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
                         
+                        println!("\nDEBUG:");
+                        println!("Current index step path: {}",current_index_step_path);
+                        println!("Current index step ref: {}",current_index_step_ref);
+                        println!("Start node index in ref path: {}",start_node_index_in_ref_path);
+
                         if current_node_id_ref == current_node_id_path {
                             println!("REFERENCE");
                             let node_seq = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
@@ -453,6 +460,7 @@ fn main() {
                             current_index_step_ref += 1;
                             current_index_step_path += 1;
                         } else {
+                            //Index out of bounds happens here
                             let succ_node_id_path = NodeId::from(path[current_index_step_path + 1]);
                             let succ_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path + 1]);
                             if succ_node_id_ref == current_node_id_path {
@@ -462,14 +470,14 @@ fn main() {
                                 let prec_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path - 1]);
                                 let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref, false));
                                 let key = [current_ref.to_string(), (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
-                                if !stuff_to_alts_dict.contains_key(&key) {
-                                    stuff_to_alts_dict.insert(key, HashSet::new());
+                                if !stuff_to_alts_map.contains_key(&key) {
+                                    stuff_to_alts_map.insert(key, HashSet::new());
                                 }
                                 //TODO: find a better way to do this
                                 let key = [current_ref.to_string(), (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
                                 let mut string_to_insert = String::from(prec_nod_seq_ref); //NOTE: -1 missing from here
                                 string_to_insert.push_str("_del");
-                                stuff_to_alts_dict.get_mut(&key).unwrap().insert(string_to_insert);
+                                stuff_to_alts_map.get_mut(&key).unwrap().insert(string_to_insert);
                                 
                                 pos_ref += node_seq_ref.len();
                                 current_index_step_ref += 1;
@@ -483,8 +491,8 @@ fn main() {
                                 let prec_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path-1]);
                                 let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref,false));
                                 let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("-");
-                                if !stuff_to_alts_dict.contains_key(&key) {
-                                    stuff_to_alts_dict.insert(key, HashSet::new());
+                                if !stuff_to_alts_map.contains_key(&key) {
+                                    stuff_to_alts_map.insert(key, HashSet::new());
                                 }
                                 
                                 //TODO: find a better way to do this
@@ -492,7 +500,7 @@ fn main() {
                                 let mut string_to_insert = String::from(prec_nod_seq_ref); //NOTE: -1 missing from here
                                 string_to_insert.push_str(node_seq_path);
                                 string_to_insert.push_str("_ins");
-                                stuff_to_alts_dict.get_mut(&key).unwrap().insert(string_to_insert);
+                                stuff_to_alts_map.get_mut(&key).unwrap().insert(string_to_insert);
 
                                 pos_path += node_seq_path.len();
                                 
@@ -511,17 +519,15 @@ fn main() {
                                 }
 
                                 let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("-");
-                                if !stuff_to_alts_dict.contains_key(&key){
-                                    stuff_to_alts_dict.insert(key, HashSet::new());
+                                if !stuff_to_alts_map.contains_key(&key){
+                                    stuff_to_alts_map.insert(key, HashSet::new());
                                 }
-                                
-                                //stuff_to_alts_dict[&key].insert(String::from(node_seq_path).push_str("snv"));
-                                
+                                                                
                                 //TODO: find a better way to do this
                                 let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("-");
                                 let mut string_to_insert = String::from(node_seq_path); //NOTE: -1 missing from here
                                 string_to_insert.push_str("_snv");
-                                stuff_to_alts_dict.get_mut(&key).unwrap().insert(string_to_insert);
+                                stuff_to_alts_map.get_mut(&key).unwrap().insert(string_to_insert);
 
 
                                 pos_ref += node_seq_ref.len();
@@ -538,7 +544,7 @@ fn main() {
         }
 
         let mut vcf_list : Vec<Vec<String>> = Vec::new();
-        for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_dict {
+        for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_map {
              
              let vec: Vec<&str> = chrom_pos_ref.split("_").collect();
              let chrom = vec[0];
@@ -612,27 +618,6 @@ mod tests {
     use handlegraph::graph::HashGraph;
     use handlegraph::handlegraph::HandleGraph;
     use super::*;
-    
-    #[test]
-    fn test_for_each_path_handle() {
-        let mut graph = HashGraph::new();
-        let h1 = graph.append_handle("A");
-        let h2 = graph.append_handle("CG");
-        let h3 = graph.append_handle("T");
-
-        graph.create_edge(&h1, &h2);
-        graph.create_edge(&h2, &h3);
-
-        let mut count = 0;
-
-        graph.for_each_handle(|p| {
-            //println!("p is: {:?}",p);
-            |count : u32| count+1; true
-            //true
-        });
-
-        assert_eq!(1,1);
-    }
 
     #[test]
     fn test_dfs_1() {
@@ -649,18 +634,30 @@ mod tests {
             display_node_edges(&g_dfs, &h);
             true
         });
-        assert_eq!(1,1);
+        
     }
 
     #[test]
     fn test_dfs_2() {
+
+        // Test a pattern that provides a different dfs_tree than Flavia's
+
+        /*
+        edges
+        1  ----> 3 
+          \-> 2 /
+        */
+
         let mut graph = HashGraph::new();
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("CG");
         let h3 = graph.append_handle("T");
 
+
         graph.create_edge(&h1, &h2);
         graph.create_edge(&h1, &h3);
+        graph.create_edge(&h2, &h3);
+        
 
         let mut g_dfs = HashGraph::new();
         dfs(&graph,&mut g_dfs,&h1.id());
@@ -670,34 +667,44 @@ mod tests {
             true
         });
 
-        println!("{:?}",graph);
-        println!("{:?}",g_dfs);
-
-        assert_eq!(1,1);
+        //println!("{:?}",graph);
+        //println!("{:?}",g_dfs);
     }
 
     #[test]
     fn test_dfs_3() {
+
+        // Test a pattern that provides the same dfs_tree as Flavia's
+
+        /*
+        edges
+        
+          /-> 3 -\ 
+        1         4
+          \-> 2 -/
+        */
+
         let mut graph = HashGraph::new();
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("CG");
         let h3 = graph.append_handle("T");
+        let h4 = graph.append_handle("AC");
 
         graph.create_edge(&h1, &h2);
-        graph.create_edge(&h2, &h3);
+        graph.create_edge(&h1, &h3);
+        graph.create_edge(&h2, &h4);
+        graph.create_edge(&h3, &h4);
 
         let mut g_dfs = HashGraph::new();
         dfs(&graph,&mut g_dfs,&h1.id());
 
-        println!("{:?}",graph);
+        //println!("{:?}",graph);
 
         g_dfs.for_each_handle(|h| {
             display_node_edges(&g_dfs, &h);
             true
         });
 
-        println!("{:?}",g_dfs);
-
-        assert_eq!(1,1);
+        //println!("{:?}",g_dfs);
     }
 }
