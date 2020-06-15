@@ -17,6 +17,7 @@ use std::collections::VecDeque;
 use std::collections::HashSet;
 //use std::cmp;
 use std::iter::FromIterator;
+use std::cmp::Ordering;
 
 
 struct Variant {
@@ -302,46 +303,46 @@ fn main() {
         let mut g_dfs = HashGraph::new();
 
         // Compute dfs
-        dfs(&graph, &mut g_dfs, &NodeId::from(1));
+        //dfs(&graph, &mut g_dfs, &NodeId::from(1));
 
-        // let h1=g_dfs.create_handle("CAAATAAG", NodeId::from(1));
-        // let h2=g_dfs.create_handle("A", NodeId::from(2));
-        // let h3=g_dfs.create_handle("G", NodeId::from(3));
-        // let h4=g_dfs.create_handle("T", NodeId::from(4));
-        // let h5=g_dfs.create_handle("C", NodeId::from(5));
-        // let h6=g_dfs.create_handle("TTG", NodeId::from(6));
-        // let h7=g_dfs.create_handle("A", NodeId::from(7));
-        // let h8=g_dfs.create_handle("G", NodeId::from(8));
-        // let h9=g_dfs.create_handle("AAAT", NodeId::from(9));
-        // let h10=g_dfs.create_handle("AA",NodeId::from(10));
-        // let h11=g_dfs.create_handle("TTTCT", NodeId::from(11));
-        // let h12=g_dfs.create_handle("GG",NodeId::from(12));
-        // let h13=g_dfs.create_handle("AGTTCTAT", NodeId::from(13));
-        // let h14=g_dfs.create_handle("A", NodeId::from(14));
-        // let h15=g_dfs.create_handle("T", NodeId::from(15));
-        // let h16=g_dfs.create_handle("ATAT", NodeId::from(16));
-        // let h17=g_dfs.create_handle("A", NodeId::from(17));
-        // let h18=g_dfs.create_handle("T", NodeId::from(18));
-        // let h19=g_dfs.create_handle("CCAACTCTCTG", NodeId::from(19));
+        let h1=g_dfs.create_handle("CAAATAAG", NodeId::from(1));
+        let h2=g_dfs.create_handle("A", NodeId::from(2));
+        let h3=g_dfs.create_handle("G", NodeId::from(3));
+        let h4=g_dfs.create_handle("T", NodeId::from(4));
+        let h5=g_dfs.create_handle("C", NodeId::from(5));
+        let h6=g_dfs.create_handle("TTG", NodeId::from(6));
+        let h7=g_dfs.create_handle("A", NodeId::from(7));
+        let h8=g_dfs.create_handle("G", NodeId::from(8));
+        let h9=g_dfs.create_handle("AAAT", NodeId::from(9));
+        let h10=g_dfs.create_handle("AA",NodeId::from(10));
+        let h11=g_dfs.create_handle("TTTCT", NodeId::from(11));
+        let h12=g_dfs.create_handle("GG",NodeId::from(12));
+        let h13=g_dfs.create_handle("AGTTCTAT", NodeId::from(13));
+        let h14=g_dfs.create_handle("A", NodeId::from(14));
+        let h15=g_dfs.create_handle("T", NodeId::from(15));
+        let h16=g_dfs.create_handle("ATAT", NodeId::from(16));
+        let h17=g_dfs.create_handle("A", NodeId::from(17));
+        let h18=g_dfs.create_handle("T", NodeId::from(18));
+        let h19=g_dfs.create_handle("CCAACTCTCTG", NodeId::from(19));
 
-        // g_dfs.create_edge(&h1, &h2);
-        // g_dfs.create_edge(&h1, &h3);
-        // g_dfs.create_edge(&h3, &h4);
-        // g_dfs.create_edge(&h3, &h5);
-        // g_dfs.create_edge(&h5, &h6);
-        // g_dfs.create_edge(&h6, &h7);
-        // g_dfs.create_edge(&h6, &h8);
-        // g_dfs.create_edge(&h8, &h9);
-        // g_dfs.create_edge(&h9, &h10);
-        // g_dfs.create_edge(&h9, &h11);
-        // g_dfs.create_edge(&h11, &h12);
-        // g_dfs.create_edge(&h11, &h13);
-        // g_dfs.create_edge(&h13, &h14);
-        // g_dfs.create_edge(&h13, &h15);
-        // g_dfs.create_edge(&h15, &h16);
-        // g_dfs.create_edge(&h16, &h17);
-        // g_dfs.create_edge(&h16, &h18);
-        // g_dfs.create_edge(&h18, &h19);
+        g_dfs.create_edge(&h1, &h2);
+        g_dfs.create_edge(&h1, &h3);
+        g_dfs.create_edge(&h3, &h4);
+        g_dfs.create_edge(&h3, &h5);
+        g_dfs.create_edge(&h5, &h6);
+        g_dfs.create_edge(&h6, &h7);
+        g_dfs.create_edge(&h6, &h8);
+        g_dfs.create_edge(&h8, &h9);
+        g_dfs.create_edge(&h9, &h10);
+        g_dfs.create_edge(&h9, &h11);
+        g_dfs.create_edge(&h11, &h12);
+        g_dfs.create_edge(&h11, &h13);
+        g_dfs.create_edge(&h13, &h14);
+        g_dfs.create_edge(&h13, &h15);
+        g_dfs.create_edge(&h15, &h16);
+        g_dfs.create_edge(&h16, &h17);
+        g_dfs.create_edge(&h16, &h18);
+        g_dfs.create_edge(&h18, &h19);
 
         // println!("g_dfs is: {:?}",g_dfs);
    
@@ -430,43 +431,33 @@ fn main() {
         println!("Path to sequence: {:?}",path_to_sequence_map);
 
         let mut stuff_to_alts_map : HashMap<String, HashSet<String>>  = HashMap::new();
+        
+        //Consider each path as reference
         for current_ref in path_to_steps_map.keys() {
-            println!("LOOP START {:?}",current_ref);
+            //println!("LOOP START {:?}",current_ref);
             
+            //Obtain all steps for each path
             //TODO: maybe rewrite in a more compact way
             let mut ref_path = Vec::new();
             println!("path_to_steps_map: {:?}",path_to_steps_map);
             for x in &path_to_steps_map[current_ref] {
-                //println!("x: {:?}",x);
-                //ref_path.push(&x[0..x.len()-1]);
-                //println!("{:?}",ref_path);
-
-                // Do not remove orientation since already pop()'ed
-                // is this correct?
                 ref_path.push(x.parse::<u64>().unwrap());
             }
-
-
-            let length = 0;
  
-            // Remove last element, equivalent to [:-1]
+            // Evaluate each possible bubble on reference path
             for (start,end) in &possible_bubbles_list {
                 
                 println!("ref_path: {:?}",ref_path);
                 println!("Bubble [{},{}]",start, end);
                 //println!("Possible bubbles list {:?}",possible_bubbles_list);
-                
                 let start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
-                //println!("start:{}",start);
-                //println!("start_node_index_in_ref_path:{}",start_node_index_in_ref_path);
-                //let start_node_index_in_ref_path = 0;
                 let mut all_path_list : Vec<Vec<NodeId>> = Vec::new();
                 print_all_paths(&graph, start, end, &mut all_path_list);
 
+                //println!("All paths list: {:?}",all_path_list);
                 for path in &all_path_list {
                     println!("\tPath: {:?}", path);
-                    //println!("All paths list: {:?}",all_path_list);
-                    let mut pos_ref = node_id_to_path_and_pos_map[&start][current_ref]+1;
+                    let mut pos_ref = node_id_to_path_and_pos_map[start][current_ref]+1;
                     let mut pos_path = pos_ref;
 
                     println!("Start paths position: {}",pos_ref);
@@ -483,19 +474,15 @@ fn main() {
                     let mut current_index_step_ref = 0;
 
                     for _i in 0..max_index {
-
-                        //println!("start_node_index_in_ref_path:{}",start_node_index_in_ref_path);
-
-                        let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
-                        let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
-
                         //println!("\nDEBUG:");
                         println!("Current index step path: {}",current_index_step_path);
                         println!("Current index step ref: {}",current_index_step_ref);
                         println!("Start node index in ref path: {}\n",start_node_index_in_ref_path);
+
+                        let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
+                        let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
                         
                         println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
-
                         if current_node_id_ref == current_node_id_path {
                             println!("REFERENCE");
                             let node_seq = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
@@ -509,22 +496,36 @@ fn main() {
                             let succ_node_id_path = NodeId::from(path[current_index_step_path + 1]);
                             let succ_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path + 1]);
                             if succ_node_id_ref == current_node_id_path {
+                                
                                 println!("DEL");
                                 let node_seq_ref = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
                                 
                                 let prec_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path - 1]);
                                 let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref, false));
-                                let key = [current_ref.to_string(), (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
+                                
+
+                                let mut last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                                //This must be concatenated!
+                                last.push_str(&String::from(node_seq_ref));
+
+                                let key = [current_ref.to_string(), (pos_path - 1).to_string(), last].join("_");
                                 if !stuff_to_alts_map.contains_key(&key) {
                                     stuff_to_alts_map.insert(key, HashSet::new());
                                 }
                                 //TODO: find a better way to do this
-                                let key = [current_ref.to_string(), (pos_path - 1).to_string(), String::from(prec_nod_seq_ref), node_seq_ref.to_string()].join("_");
-                                let mut string_to_insert = String::from(prec_nod_seq_ref); //NOTE: -1 missing from here
+                                let mut last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                                //This must be concatenated!
+                                last.push_str(&String::from(node_seq_ref));
+                                
+                                let key = [current_ref.to_string(), (pos_path - 1).to_string(), last].join("_");
+                                
+                                let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                                let mut string_to_insert = last;
                                 string_to_insert.push_str("_del");
                                 stuff_to_alts_map.get_mut(&key).unwrap().insert(string_to_insert);
                                 
                                 pos_ref += node_seq_ref.len();
+
                                 current_index_step_ref += 1;
                                 current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path -1]);
                                 println!("\t {}", current_node_id_ref);
@@ -535,14 +536,20 @@ fn main() {
                                 
                                 let prec_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path-1]);
                                 let prec_nod_seq_ref = graph.get_sequence(&graph.get_handle(prec_node_id_ref,false));
-                                let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("-");
+
+                                let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                                //let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("_");
+                                let key = [current_ref.to_string(), (pos_ref-1).to_string(), last].join("_");
                                 if !stuff_to_alts_map.contains_key(&key) {
                                     stuff_to_alts_map.insert(key, HashSet::new());
                                 }
                                 
-                                //TODO: find a better way to do this
-                                let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("-");
-                                let mut string_to_insert = String::from(prec_nod_seq_ref); //NOTE: -1 missing from here
+                                //Re-create key since it goes out of scope
+                                let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                                let key = [current_ref.to_string(), (pos_ref-1).to_string(), last].join("_");
+                                
+                                let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                                let mut string_to_insert = String::from(last);
                                 string_to_insert.push_str(node_seq_path);
                                 string_to_insert.push_str("_ins");
                                 stuff_to_alts_map.get_mut(&key).unwrap().insert(string_to_insert);
@@ -563,14 +570,14 @@ fn main() {
                                     println!("SNV");
                                 }
 
-                                let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("-");
+                                let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("_");
                                 if !stuff_to_alts_map.contains_key(&key){
                                     stuff_to_alts_map.insert(key, HashSet::new());
                                 }
                                                                 
                                 //TODO: find a better way to do this
-                                let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("-");
-                                let mut string_to_insert = String::from(node_seq_path); //NOTE: -1 missing from here
+                                let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("_");
+                                let mut string_to_insert = String::from(node_seq_path.chars().last().unwrap().to_string());
                                 string_to_insert.push_str("_snv");
                                 stuff_to_alts_map.get_mut(&key).unwrap().insert(string_to_insert);
 
@@ -588,47 +595,59 @@ fn main() {
             println!("==========================================");
         }
 
-        // let mut vcf_list : Vec<Vec<String>> = Vec::new();
-        // for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_map {
+        println!("Stuff to alts map: {:#?}",stuff_to_alts_map);
+        let mut vcf_list : Vec<Vec<String>> = Vec::new();
+        for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_map {
              
-        //      let vec: Vec<&str> = chrom_pos_ref.split("_").collect();
-        //      let chrom = vec[0];
-        //      let pos = vec[1];
-        //      let refr = vec[2];
+             let vec: Vec<&str> = chrom_pos_ref.split("_").collect();
+             //print!("Vec: {:?}",vec);
+             let chrom = vec[0];
+             let pos = vec[1];
+             let refr = vec[2];
              
-        //      let mut alt_list : Vec<String> = Vec::new();
-        //      for x in alt_type_set {
-        //         let mut split : Vec<&str> = x.split("_").collect();
-        //         alt_list.push(String::from(split[0]));
-        //      }
+             let mut alt_list : Vec<String> = Vec::new();
+             for x in alt_type_set {
+                //println!("x is {}",x);
+                let split : Vec<&str> = x.split("_").collect();
+                alt_list.push(String::from(split[0]));
+             }
              
-        //      //let type_set : HashSet<String> = HashSet::new(); 
-        //      let mut type_set : Vec<&str> = Vec::new();
-        //      for x in alt_type_set {
-        //         let mut split : Vec<&str> = x.split("_").collect();
-        //         //type_set.insert(String::from(split[1]));
-        //         type_set.push(split[1]);
-        //      }
+             //let type_set : HashSet<String> = HashSet::new(); 
+             let mut type_set : Vec<&str> = Vec::new();
+             for x in alt_type_set {
+                let split : Vec<&str> = x.split("_").collect();
+                //type_set.insert(String::from(split[1]));
+                type_set.push(split[1]);
+             }
 
-        //      let alts = alt_list.join(",");
-        //      let types = type_set.join(";TYPE=");
-        //      let list_to_append = [chrom, pos,".",refr,&alts,".",".", "TYPE=",&types, "GT", "0|1"];
-        //      vcf_list.push(Vec::from_iter(list_to_append.iter().map(|&x| String::from(x))));
-        // }
+             let alts = alt_list.join(",");
+             let types = type_set.join(";TYPE=");
+             let list_to_append = [chrom, pos,".",refr,&alts,".",".", "TYPE=",&types, "GT", "0|1"];
+             vcf_list.push(Vec::from_iter(list_to_append.iter().map(|&x| String::from(x))));
+        }
+
+        //println!("VCF list is {:#?}",vcf_list);
+
+        //sort by chrom
+        //vcf_list.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        
+        // First sort by chrom, then by starting pos
+        vcf_list.sort_by(|a, b| {
+            match a[0].cmp(&b[0]) {
+                Ordering::Equal => a[1].parse::<i32>().unwrap().cmp(&b[1].parse::<i32>().unwrap()),
+                other => other,
+            }});
 
 
-        //Find variations
-        //let variations = find_variants(&graph, &reference);
-
-        //Write variations to file
-        //write_to_file(&PathBuf::from(out_path), &variations).unwrap();
+        //Write variants to file
+        write_to_file(&PathBuf::from(out_path_file), &vcf_list).unwrap();
     } else {
         panic!("Couldn't parse gfa file!");
     }
 
 }
 
-fn write_to_file(path: &PathBuf, variations: &Vec<Variant>) -> std::io::Result<()> {
+fn write_to_file(path: &PathBuf, variations: &Vec<Vec<String>>) -> std::io::Result<()> {
     let mut file = File::create(path).expect(&format!("Error creating file {:?}", path));
 
     let header = [
@@ -639,20 +658,23 @@ fn write_to_file(path: &PathBuf, variations: &Vec<Variant>) -> std::io::Result<(
         "##reference=z.fa",
         "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"Type of each allele (snv, ins, del, mnp, complex)\">",
         "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">",
-        &["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO"].join("\t"),
+        &["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT","SampleName"].join("\t"),
     ].join("\n");
     file.write(header.as_bytes()).expect("Error writing header");
 
+    file.write("\n".as_bytes()).expect("Error writing to file");
     for var in variations {
-        let to_write = format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
-                                var.chromosome, 
-                                var.position, 
-                                var.id, 
-                                var.reference, 
-                                var.alternate, 
-                                var.quality, 
-                                var.filter, 
-                                var.info);
+        let to_write = format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+                                var[0], 
+                                var[1], 
+                                var[2], 
+                                var[3], 
+                                var[4], 
+                                var[5], 
+                                var[6],
+                                format!("{}{}",var[7],var[8]),
+                                var[9],
+                                var[10]);
         file.write(to_write.as_bytes()).expect("Error writing variant");
     }
     Ok(())
