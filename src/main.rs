@@ -304,9 +304,48 @@ fn main() {
         // Compute dfs
         dfs(&graph, &mut g_dfs, &NodeId::from(1));
 
-        //println!("g_dfs is: {:?}",g_dfs);
+        // let h1=g_dfs.create_handle("CAAATAAG", NodeId::from(1));
+        // let h2=g_dfs.create_handle("A", NodeId::from(2));
+        // let h3=g_dfs.create_handle("G", NodeId::from(3));
+        // let h4=g_dfs.create_handle("T", NodeId::from(4));
+        // let h5=g_dfs.create_handle("C", NodeId::from(5));
+        // let h6=g_dfs.create_handle("TTG", NodeId::from(6));
+        // let h7=g_dfs.create_handle("A", NodeId::from(7));
+        // let h8=g_dfs.create_handle("G", NodeId::from(8));
+        // let h9=g_dfs.create_handle("AAAT", NodeId::from(9));
+        // let h10=g_dfs.create_handle("AA",NodeId::from(10));
+        // let h11=g_dfs.create_handle("TTTCT", NodeId::from(11));
+        // let h12=g_dfs.create_handle("GG",NodeId::from(12));
+        // let h13=g_dfs.create_handle("AGTTCTAT", NodeId::from(13));
+        // let h14=g_dfs.create_handle("A", NodeId::from(14));
+        // let h15=g_dfs.create_handle("T", NodeId::from(15));
+        // let h16=g_dfs.create_handle("ATAT", NodeId::from(16));
+        // let h17=g_dfs.create_handle("A", NodeId::from(17));
+        // let h18=g_dfs.create_handle("T", NodeId::from(18));
+        // let h19=g_dfs.create_handle("CCAACTCTCTG", NodeId::from(19));
+
+        // g_dfs.create_edge(&h1, &h2);
+        // g_dfs.create_edge(&h1, &h3);
+        // g_dfs.create_edge(&h3, &h4);
+        // g_dfs.create_edge(&h3, &h5);
+        // g_dfs.create_edge(&h5, &h6);
+        // g_dfs.create_edge(&h6, &h7);
+        // g_dfs.create_edge(&h6, &h8);
+        // g_dfs.create_edge(&h8, &h9);
+        // g_dfs.create_edge(&h9, &h10);
+        // g_dfs.create_edge(&h9, &h11);
+        // g_dfs.create_edge(&h11, &h12);
+        // g_dfs.create_edge(&h11, &h13);
+        // g_dfs.create_edge(&h13, &h14);
+        // g_dfs.create_edge(&h13, &h15);
+        // g_dfs.create_edge(&h15, &h16);
+        // g_dfs.create_edge(&h16, &h17);
+        // g_dfs.create_edge(&h16, &h18);
+        // g_dfs.create_edge(&h18, &h19);
+
+        // println!("g_dfs is: {:?}",g_dfs);
    
-        
+
         g_dfs.for_each_handle(|h| {
                                     display_node_edges(&g_dfs, &h);
                                     true
@@ -367,12 +406,14 @@ fn main() {
                 println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
                 pair.0 = node_id;
                 possible_bubbles_list.push(pair); //Ok, pair.2 is a placeholder
-                println!("Possible bubbles: {:?}",possible_bubbles_list);
+                //println!("Possible bubbles: {:?}",possible_bubbles_list);
             } else {
                 println!("{} Bubble {:?} {:?}",node_id, node_id_to_path_and_pos_map[&node_id], g_dfs.get_sequence(&g_dfs.get_handle(node_id,false)));
             }
         }
 
+        println!("Possible bubbles list: {:?}",possible_bubbles_list);
+        possible_bubbles_list.pop(); //Remove last bubble, should not be considered
         println!("Possible bubbles list: {:?}",possible_bubbles_list);
 
         println!("\n------------------");
@@ -384,12 +425,13 @@ fn main() {
              for node_id_rev in steps_list {
                  path_to_sequence_map.get_mut(path_name).unwrap().push_str(graph.get_sequence(&graph.get_handle(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false)));
              }
-       }
+        }
 
-       println!("Path to sequence: {:?}",path_to_sequence_map);
+        println!("Path to sequence: {:?}",path_to_sequence_map);
 
         let mut stuff_to_alts_map : HashMap<String, HashSet<String>>  = HashMap::new();
         for current_ref in path_to_steps_map.keys() {
+            println!("LOOP START {:?}",current_ref);
             
             //TODO: maybe rewrite in a more compact way
             let mut ref_path = Vec::new();
@@ -408,21 +450,22 @@ fn main() {
             let length = 0;
  
             // Remove last element, equivalent to [:-1]
-            possible_bubbles_list.pop();
             for (start,end) in &possible_bubbles_list {
                 
                 println!("ref_path: {:?}",ref_path);
                 println!("Bubble [{},{}]",start, end);
+                //println!("Possible bubbles list {:?}",possible_bubbles_list);
                 
-                //TODO: Fix this
-                //Find position of start in path
-                let _start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
-                let start_node_index_in_ref_path = 0;
+                let start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
+                //println!("start:{}",start);
+                //println!("start_node_index_in_ref_path:{}",start_node_index_in_ref_path);
+                //let start_node_index_in_ref_path = 0;
                 let mut all_path_list : Vec<Vec<NodeId>> = Vec::new();
                 print_all_paths(&graph, start, end, &mut all_path_list);
 
-                for path in all_path_list {
+                for path in &all_path_list {
                     println!("\tPath: {:?}", path);
+                    //println!("All paths list: {:?}",all_path_list);
                     let mut pos_ref = node_id_to_path_and_pos_map[&start][current_ref]+1;
                     let mut pos_path = pos_ref;
 
@@ -430,9 +473,9 @@ fn main() {
 
                     let max_index = if path.len() < ref_path.len() {path.len()} else {ref_path.len()};
                     
-                    println!("\nDEBUG:");
-                    println!("Path: {:?}", path);
-                    println!("Ref_Path: {:?}\n", ref_path);
+                    //println!("\nDEBUG:");
+                    //println!("Path: {:?}", path);
+                    //println!("Ref_Path: {:?}\n", ref_path);
                     //println!("path: {} ref_path: {}", path.len(), ref_path.len());
                     //println!("max_index: {}",max_index);
 
@@ -441,15 +484,17 @@ fn main() {
 
                     for _i in 0..max_index {
 
-                        let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
+                        //println!("start_node_index_in_ref_path:{}",start_node_index_in_ref_path);
+
                         let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
-                    
-                        println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
-                        
-                        println!("\nDEBUG:");
+                        let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
+
+                        //println!("\nDEBUG:");
                         println!("Current index step path: {}",current_index_step_path);
                         println!("Current index step ref: {}",current_index_step_ref);
-                        println!("Start node index in ref path: {}",start_node_index_in_ref_path);
+                        println!("Start node index in ref path: {}\n",start_node_index_in_ref_path);
+                        
+                        println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
 
                         if current_node_id_ref == current_node_id_path {
                             println!("REFERENCE");
@@ -543,33 +588,33 @@ fn main() {
             println!("==========================================");
         }
 
-        let mut vcf_list : Vec<Vec<String>> = Vec::new();
-        for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_map {
+        // let mut vcf_list : Vec<Vec<String>> = Vec::new();
+        // for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_map {
              
-             let vec: Vec<&str> = chrom_pos_ref.split("_").collect();
-             let chrom = vec[0];
-             let pos = vec[1];
-             let refr = vec[2];
+        //      let vec: Vec<&str> = chrom_pos_ref.split("_").collect();
+        //      let chrom = vec[0];
+        //      let pos = vec[1];
+        //      let refr = vec[2];
              
-             let mut alt_list : Vec<String> = Vec::new();
-             for x in alt_type_set {
-                let mut split : Vec<&str> = x.split("_").collect();
-                alt_list.push(String::from(split[0]));
-             }
+        //      let mut alt_list : Vec<String> = Vec::new();
+        //      for x in alt_type_set {
+        //         let mut split : Vec<&str> = x.split("_").collect();
+        //         alt_list.push(String::from(split[0]));
+        //      }
              
-             //let type_set : HashSet<String> = HashSet::new(); 
-             let mut type_set : Vec<&str> = Vec::new();
-             for x in alt_type_set {
-                let mut split : Vec<&str> = x.split("_").collect();
-                //type_set.insert(String::from(split[1]));
-                type_set.push(split[1]);
-             }
+        //      //let type_set : HashSet<String> = HashSet::new(); 
+        //      let mut type_set : Vec<&str> = Vec::new();
+        //      for x in alt_type_set {
+        //         let mut split : Vec<&str> = x.split("_").collect();
+        //         //type_set.insert(String::from(split[1]));
+        //         type_set.push(split[1]);
+        //      }
 
-             let alts = alt_list.join(",");
-             let types = type_set.join(";TYPE=");
-             let list_to_append = [chrom, pos,".",refr,&alts,".",".", "TYPE=",&types, "GT", "0|1"];
-             vcf_list.push(Vec::from_iter(list_to_append.iter().map(|&x| String::from(x))));
-        }
+        //      let alts = alt_list.join(",");
+        //      let types = type_set.join(";TYPE=");
+        //      let list_to_append = [chrom, pos,".",refr,&alts,".",".", "TYPE=",&types, "GT", "0|1"];
+        //      vcf_list.push(Vec::from_iter(list_to_append.iter().map(|&x| String::from(x))));
+        // }
 
 
         //Find variations
