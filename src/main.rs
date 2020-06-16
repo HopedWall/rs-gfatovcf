@@ -15,7 +15,7 @@ use chrono::Utc;
 use std::io::{BufReader,BufRead};
 use std::collections::VecDeque;
 use std::collections::HashSet;
-//use std::cmp;
+use std::cmp;
 use std::iter::FromIterator;
 use std::cmp::Ordering;
 
@@ -450,7 +450,15 @@ fn main() {
                 println!("ref_path: {:?}",ref_path);
                 println!("Bubble [{},{}]",start, end);
                 //println!("Possible bubbles list {:?}",possible_bubbles_list);
-                let start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
+
+                //let start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
+
+                let start_node_index_in_ref_path : usize;
+                match ref_path.iter().position(|&r| NodeId::from(r) == *start) {
+                    None => continue,   //ignore, start not found in ref path
+                    Some(r) => start_node_index_in_ref_path = r,
+                };
+
                 let mut all_path_list : Vec<Vec<NodeId>> = Vec::new();
                 print_all_paths(&graph, start, end, &mut all_path_list);
 
@@ -462,8 +470,9 @@ fn main() {
 
                     println!("Start paths position: {}",pos_ref);
 
-                    let max_index = if path.len() < ref_path.len() {path.len()} else {ref_path.len()};
-                    
+                    //let max_index = if path.len() < ref_path.len() {path.len()} else {ref_path.len()};
+                    let max_index = cmp::min(path.len(), ref_path.len());
+
                     //println!("\nDEBUG:");
                     //println!("Path: {:?}", path);
                     //println!("Ref_Path: {:?}\n", ref_path);
@@ -477,8 +486,9 @@ fn main() {
                         //println!("\nDEBUG:");
                         println!("Current index step path: {}",current_index_step_path);
                         println!("Current index step ref: {}",current_index_step_ref);
+                        println!("Max index: {}",max_index);
                         println!("Start node index in ref path: {}\n",start_node_index_in_ref_path);
-
+                        
                         let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
                         let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
                         
@@ -492,6 +502,17 @@ fn main() {
                             current_index_step_ref += 1;
                             current_index_step_path += 1;
                         } else {
+
+                            if current_index_step_path+1 >= path.len() {
+                                //TODO: figure out what this means
+                                break;
+                            }
+
+                            if current_index_step_ref + start_node_index_in_ref_path +1 >= ref_path.len() {
+                                //TODO: figure out what this means
+                                break;
+                            }
+
                             //Index out of bounds happens here
                             let succ_node_id_path = NodeId::from(path[current_index_step_path + 1]);
                             let succ_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path + 1]);
