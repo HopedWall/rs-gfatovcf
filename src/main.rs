@@ -417,6 +417,47 @@ fn main() {
         possible_bubbles_list.pop(); //Remove last bubble, should not be considered
         println!("Possible bubbles list: {:?}",possible_bubbles_list);
 
+        //Compress bubble list
+        let mut possible_bubbles_list_compressed : Vec<(NodeId,NodeId)> = Vec::new();
+        let mut temp : (NodeId, NodeId) = (NodeId::from(0),NodeId::from(0));
+        let mut open_bubble = false;
+        for (start, end) in possible_bubbles_list {
+            if end==start+1 {
+                if !open_bubble {
+                    temp.0 = start;
+                    temp.1 = end;
+                    open_bubble = true;
+                } else {
+                    temp.1 = end;
+                }
+            } else {
+                if open_bubble {
+                    
+                    if temp.1 == start {
+                        // Extend open bubble
+                        temp.1 = end;
+
+                        possible_bubbles_list_compressed.push(temp);
+                        temp.0 = NodeId::from(0);
+                        temp.1 = NodeId::from(0);
+                        open_bubble = false;
+
+                        continue;
+
+                        //Do not push (start,end) since already inserted
+                    }
+
+                    possible_bubbles_list_compressed.push(temp);
+                    temp.0 = NodeId::from(0);
+                    temp.1 = NodeId::from(0);
+                    open_bubble = false;
+                }
+                possible_bubbles_list_compressed.push((start, end));
+            }
+        }
+
+        println!("Possible bubbles list compressed: {:?}",possible_bubbles_list_compressed);
+
         println!("\n------------------");
 
         let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
@@ -445,7 +486,7 @@ fn main() {
             }
  
             // Evaluate each possible bubble on reference path
-            for (start,end) in &possible_bubbles_list {
+            for (start,end) in &possible_bubbles_list_compressed {
                 
                 println!("ref_path: {:?}",ref_path);
                 println!("Bubble [{},{}]",start, end);
