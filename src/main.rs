@@ -164,6 +164,97 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (HashMap<NodeId,
     (distances_map, ordered_node_id_list)
 }
 
+//Computes a different bfs
+// fn new_dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : &NodeId) {
+//     let current_handle = g.get_handle(*node_id, false);
+
+//     g.follow_edges(
+//         &current_handle,
+//         Direction::Right,
+//         |neighbor| {
+//             if !g_dfs.has_node(g.get_id(neighbor)) {
+//                 new_dfs_support(g, g_dfs, &neighbor);
+//             }         
+//             true
+//         });
+// }
+// fn new_dfs_support(g : &HashGraph, g_dfs : &HashGraph, node_handle : &Handle) {
+//}
+
+//Computes a different bfs
+fn new_bfs(g : &HashGraph, g_bfs : &mut HashGraph, node_id : &NodeId) {
+    let current_handle = g.get_handle(*node_id, false);
+    let mut added_handles : Vec<Handle> = vec![];
+
+    if !g_bfs.has_node(*node_id) {
+        g_bfs.create_handle(g.get_sequence(&current_handle), *node_id);
+    }
+
+    g.follow_edges(
+        &current_handle,
+        Direction::Right,
+        |neighbor| {
+            if !g_bfs.has_node(g.get_id(neighbor)) {
+                let h = g_bfs.create_handle(
+                    g.get_sequence(&neighbor), 
+                    g.get_id(&neighbor)
+                );
+                added_handles.push(h);
+                g_bfs.create_edge(&current_handle, neighbor);
+            }
+            
+            true
+        });
+    
+    for h in &added_handles {
+        new_bfs(g, g_bfs, &g.get_id(h));
+    }
+        
+}
+
+// Find all paths not in g_dfs but in dfs
+fn find_bubbles(g : &HashGraph, g_dfs : &HashGraph, node_id : &NodeId, bubbles_vector : &mut Vec<(NodeId, NodeId)>) {
+    let current_handle = g.get_handle(*node_id, false);
+
+    g.follow_edges(
+        &current_handle, 
+        Direction::Right,
+        |neighbor| {
+            if !g_dfs.has_edge(&current_handle, neighbor) {
+                let possible_bubble : (NodeId, NodeId) = (*node_id,NodeId::from(0)); 
+                find_bubbles_support(&g, &g_dfs, &neighbor, bubbles_vector, possible_bubble);
+            }
+            //find_bubbles(g, g_dfs, &g.get_id(neighbor), bubbles_vector);
+            true
+    });    
+}
+// Once a bubble opening has been found, continue exploring the graph
+fn find_bubbles_support(g : &HashGraph, g_dfs : &HashGraph, node_handle : &Handle, 
+                        bubbles_vector : &mut Vec<(NodeId, NodeId)>,
+                        mut current_bubble : (NodeId, NodeId)) {
+        
+    g.follow_edges(
+        node_handle, 
+        Direction::Right, 
+        |neighbor| {
+            if g_dfs.has_node(g.get_id(neighbor)) {
+                // Set bubble end
+                current_bubble.1 = g.get_id(neighbor);
+                // Add bubble to vector
+                if !bubbles_vector.contains(&current_bubble) {
+                    bubbles_vector.push(current_bubble);
+                }
+                //Continue searching new bubble
+                find_bubbles(g, g_dfs, &g.get_id(neighbor), bubbles_vector);
+            } else {
+                find_bubbles_support(g, g_dfs, neighbor, 
+                    bubbles_vector, current_bubble);
+            }
+            true
+        });
+
+}
+
 /// Prints all paths between two nodes
 fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_id_set : &mut HashSet<NodeId>, path_list : &mut Vec<NodeId>, all_path_list : &mut Vec<Vec<NodeId>>) {
     if !visited_node_id_set.contains(&u) {
@@ -300,10 +391,25 @@ fn main() {
 
         let start_node = graph.get_handle(NodeId::from(1), false);
 
-        let mut g_dfs = HashGraph::new();
 
+        let mut g_dfs = HashGraph::new();
+        // Attempt a bfs
+        new_bfs(&graph, &mut g_dfs, &NodeId::from(1));
+        // See distances
+        g_dfs.for_each_handle(|h| {
+            display_node_edges(&g_dfs, &h);
+            true
+          });
+
+        //let mut g_dfs = HashGraph::new();
+        
         // Compute dfs
-        dfs(&graph, &mut g_dfs, &NodeId::from(1));
+        //dfs(&graph, &mut g_dfs, &NodeId::from(1));
+
+        //let mut bubbles_dfs : Vec<(NodeId,NodeId)> = Vec::new();
+        //find_bubbles(&graph, &g_dfs,&NodeId::from(1), &mut bubbles_dfs);
+
+        //println!("Bubbles DFS: {:?}",bubbles_dfs);
 
         // let h1=g_dfs.create_handle("CAAATAAG", NodeId::from(1));
         // let h2=g_dfs.create_handle("A", NodeId::from(2));
