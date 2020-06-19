@@ -120,15 +120,16 @@ fn display_node_edges(g_dfs : &HashGraph, h : &Handle) {
 fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, q : &mut VecDeque<NodeId>, distances_map : &mut HashMap<NodeId,u64>) {
     
     if !visited_node_id_set.contains(&neighbour_id) {
-        let previous_value = distances_map.get(prev_node_id).unwrap();
-        distances_map.insert(*neighbour_id, *previous_value + 1);
+        //Clone necessary due to https://github.com/rust-lang/rust/issues/59159
+        let previous_value = distances_map.get(prev_node_id).unwrap().clone();
+        distances_map.insert(*neighbour_id, previous_value + 1);
         q.push_back(*neighbour_id);
         visited_node_id_set.insert(*neighbour_id);
     }
 }
 
 // This function can be optimized via closures!
-/// Finds the distance of each node from root
+/// Finds the distance of each node from a given root
 fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (HashMap<NodeId,u64>, Vec<NodeId>) {
     let mut visited_node_id_set : HashSet<NodeId> = HashSet::new();
     let mut ordered_node_id_list : Vec<NodeId> = Vec::new();
@@ -320,7 +321,6 @@ fn main() {
     if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path_file)) {
         
         let graph = HashGraph::from_gfa(&gfa);
-       // println!("{:?}",graph);
 
         let mut path_to_steps_map : HashMap<String,Vec<String>> = HashMap::new();
 
@@ -598,8 +598,6 @@ fn main() {
                 println!("Bubble [{},{}]",start, end);
                 //println!("Possible bubbles list {:?}",possible_bubbles_list);
 
-                //let start_node_index_in_ref_path = ref_path.iter().position(|&r| NodeId::from(r) == *start).unwrap();
-
                 let start_node_index_in_ref_path : usize;
                 match ref_path.iter().position(|&r| NodeId::from(r) == *start) {
                     None => continue,   //ignore, start not found in ref path
@@ -617,7 +615,6 @@ fn main() {
 
                     println!("Start paths position: {}",pos_ref);
 
-                    //let max_index = if path.len() < ref_path.len() {path.len()} else {ref_path.len()};
                     let max_index = cmp::min(path.len(), ref_path.len());
 
                     //println!("\nDEBUG:");
@@ -650,17 +647,14 @@ fn main() {
                             current_index_step_path += 1;
                         } else {
 
+                            // Shouldn't be happening anymore
                             if current_index_step_path+1 >= path.len() {
-                                //TODO: figure out what this means
                                 break;
                             }
-
                             if current_index_step_ref + start_node_index_in_ref_path +1 >= ref_path.len() {
-                                //TODO: figure out what this means
                                 break;
                             }
 
-                            //Index out of bounds happens here
                             let succ_node_id_path = NodeId::from(path[current_index_step_path + 1]);
                             let succ_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path + 1]);
                             if succ_node_id_ref == current_node_id_path {
@@ -768,23 +762,19 @@ fn main() {
         for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_map {
              
              let vec: Vec<&str> = chrom_pos_ref.split("_").collect();
-             //print!("Vec: {:?}",vec);
              let chrom = vec[0];
              let pos = vec[1];
              let refr = vec[2];
              
              let mut alt_list : Vec<String> = Vec::new();
              for x in alt_type_set {
-                //println!("x is {}",x);
                 let split : Vec<&str> = x.split("_").collect();
                 alt_list.push(String::from(split[0]));
              }
              
-             //let type_set : HashSet<String> = HashSet::new(); 
              let mut type_set : Vec<&str> = Vec::new();
              for x in alt_type_set {
                 let split : Vec<&str> = x.split("_").collect();
-                //type_set.insert(String::from(split[1]));
                 type_set.push(split[1]);
              }
 
