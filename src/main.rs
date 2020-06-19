@@ -9,7 +9,7 @@ use handlegraph::pathgraph::PathHandleGraph;
 use std::fs::File;
 use std::io::Write;
 extern crate clap;
-//use clap::{Arg, App};
+use clap::{Arg, App};
 extern crate chrono;
 use chrono::Utc;
 use std::io::{BufReader,BufRead};
@@ -292,31 +292,31 @@ fn print_all_paths(g : &HashGraph, start_node_id : &NodeId, end_node_id : &NodeI
 
 fn main() {
 
-    // let matches = App::new("rs-GFAtoVCF")
-    //                       .version("1.0")
-    //                       .author("Francesco Porto <francesco.porto97@gmail.com>")
-    //                       .about("Converts GFA to VCF")
-    //                       .arg(Arg::with_name("input")
-    //                            .short("i")
-    //                            .long("input")
-    //                            .value_name("FILE")
-    //                            .help("Sets the input file to use")
-    //                            .required(true)
-    //                            .takes_value(true))
-    //                       .arg(Arg::with_name("output")
-    //                            .short("o")
-    //                            .long("output")
-    //                            .value_name("FILE")
-    //                            .help("Sets the output file to use")
-    //                            .required(true)
-    //                            .takes_value(true))
-    //                       .get_matches();
+    let matches = App::new("rs-GFAtoVCF")
+                          .version("1.0")
+                          .author("Francesco Porto <francesco.porto97@gmail.com>")
+                          .about("Converts GFA to VCF")
+                          .arg(Arg::with_name("input")
+                               .short("i")
+                               .long("input")
+                               .value_name("FILE")
+                               .help("Sets the input file to use")
+                               .required(true)
+                               .takes_value(true))
+                          .arg(Arg::with_name("output")
+                               .short("o")
+                               .long("output")
+                               .value_name("FILE")
+                               .help("Sets the output file to use")
+                               .required(true)
+                               .takes_value(true))
+                          .get_matches();
 
-    // let in_path = matches.value_of("input").expect("Could not parse argument --input");
-    // let out_path = matches.value_of("output").expect("Could not parse argument --output");
+    let in_path_file = matches.value_of("input").expect("Could not parse argument --input");
+    let out_path_file = matches.value_of("output").expect("Could not parse argument --output");
 
-    let in_path_file = "./input/samplePath3.gfa";
-    let out_path_file = "./input/samplePath3.vcf";
+    //let in_path_file = "./input/samplePath3.gfa";
+    //let out_path_file = "./input/samplePath3.vcf";
       
     if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path_file)) {
         
@@ -512,7 +512,6 @@ fn main() {
             //println!("LOOP START {:?}",current_ref);
             
             //Obtain all steps for each path
-            //TODO: maybe rewrite in a more compact way
             let mut ref_path = Vec::new();
             println!("path_to_steps_map: {:?}",path_to_steps_map);
             for x in &path_to_steps_map[current_ref] {
