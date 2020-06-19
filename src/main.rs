@@ -117,7 +117,7 @@ fn display_node_edges(g_dfs : &HashGraph, h : &Handle) {
 }
 
 /// Calculates the distance of adjacent nodes
-fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, q : &mut VecDeque<NodeId>, distances_map : &mut HashMap<NodeId,u64>) {
+fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id : &NodeId, neighbour_id : &NodeId, q : &mut VecDeque<NodeId>, distances_map : &mut BTreeMap<NodeId,u64>) {
     
     if !visited_node_id_set.contains(&neighbour_id) {
         //Clone necessary due to https://github.com/rust-lang/rust/issues/59159
@@ -130,11 +130,11 @@ fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id :
 
 // This function can be optimized via closures!
 /// Finds the distance of each node from a given root
-fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (HashMap<NodeId,u64>, Vec<NodeId>) {
+fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (BTreeMap<NodeId,u64>, Vec<NodeId>) {
     let mut visited_node_id_set : HashSet<NodeId> = HashSet::new();
     let mut ordered_node_id_list : Vec<NodeId> = Vec::new();
     
-    let mut distances_map : HashMap<NodeId, u64> = HashMap::new();
+    let mut distances_map : BTreeMap<NodeId, u64> = BTreeMap::new();
     let mut node_id_list = Vec::new();
     g.for_each_handle(|h| {
         node_id_list.push(g.get_id(h));
@@ -340,14 +340,14 @@ fn main() {
         println!("{:?}",path_to_steps_map);
         
         // Obtains, for each node_id, the starting position in terms of actual sequence length, according to path
-        let mut node_id_to_path_and_pos_map : HashMap<NodeId, HashMap<String, usize>> = HashMap::new();
+        let mut node_id_to_path_and_pos_map : BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
         for (path_name, steps_list) in &mut path_to_steps_map {
             let mut pos = 0;
 
             for node_id_is_rev in steps_list {
                 
                 // Get orientation
-                let is_rev = node_id_is_rev.pop().unwrap();
+                let _is_rev = node_id_is_rev.pop().unwrap();
                 // Get the id of the node string -> NodeId
                 let node_id : NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
                 
@@ -369,18 +369,10 @@ fn main() {
         //println!("Node id to path and pos");
         //println!("{:?}",node_id_to_path_and_pos_map);
 
-        // node_id_to_path_and_pos_map must be sorted
-        // TODO: find a better inplace solution
-        // maybe use btreemap directly
-        let mut sorted = BTreeMap::new();
-        for (id, value) in node_id_to_path_and_pos_map.iter() {
-            sorted.insert(id, value);
-        }
-
         //println!("Sorted");
         //println!("{:?}",sorted);
 
-        for node_id in sorted.keys() {
+        for node_id in node_id_to_path_and_pos_map.keys() {
             let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
             println!("Node_id : {}", node_id);
 
@@ -389,91 +381,35 @@ fn main() {
             }
         }
 
-        let start_node = graph.get_handle(NodeId::from(1), false);
-
-
-        let mut g_dfs = HashGraph::new();
+        let mut g_bfs = HashGraph::new();
         // Attempt a bfs
-        new_bfs(&graph, &mut g_dfs, &NodeId::from(1));
+        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
         // See distances
-        g_dfs.for_each_handle(|h| {
-            display_node_edges(&g_dfs, &h);
+        g_bfs.for_each_handle(|h| {
+            display_node_edges(&g_bfs, &h);
             true
           });
 
-        //let mut g_dfs = HashGraph::new();
-        
-        // Compute dfs
-        //dfs(&graph, &mut g_dfs, &NodeId::from(1));
 
         //let mut bubbles_dfs : Vec<(NodeId,NodeId)> = Vec::new();
         //find_bubbles(&graph, &g_dfs,&NodeId::from(1), &mut bubbles_dfs);
-
         //println!("Bubbles DFS: {:?}",bubbles_dfs);
 
-        // let h1=g_dfs.create_handle("CAAATAAG", NodeId::from(1));
-        // let h2=g_dfs.create_handle("A", NodeId::from(2));
-        // let h3=g_dfs.create_handle("G", NodeId::from(3));
-        // let h4=g_dfs.create_handle("T", NodeId::from(4));
-        // let h5=g_dfs.create_handle("C", NodeId::from(5));
-        // let h6=g_dfs.create_handle("TTG", NodeId::from(6));
-        // let h7=g_dfs.create_handle("A", NodeId::from(7));
-        // let h8=g_dfs.create_handle("G", NodeId::from(8));
-        // let h9=g_dfs.create_handle("AAAT", NodeId::from(9));
-        // let h10=g_dfs.create_handle("AA",NodeId::from(10));
-        // let h11=g_dfs.create_handle("TTTCT", NodeId::from(11));
-        // let h12=g_dfs.create_handle("GG",NodeId::from(12));
-        // let h13=g_dfs.create_handle("AGTTCTAT", NodeId::from(13));
-        // let h14=g_dfs.create_handle("A", NodeId::from(14));
-        // let h15=g_dfs.create_handle("T", NodeId::from(15));
-        // let h16=g_dfs.create_handle("ATAT", NodeId::from(16));
-        // let h17=g_dfs.create_handle("A", NodeId::from(17));
-        // let h18=g_dfs.create_handle("T", NodeId::from(18));
-        // let h19=g_dfs.create_handle("CCAACTCTCTG", NodeId::from(19));
-
-        // g_dfs.create_edge(&h1, &h2);
-        // g_dfs.create_edge(&h1, &h3);
-        // g_dfs.create_edge(&h3, &h4);
-        // g_dfs.create_edge(&h3, &h5);
-        // g_dfs.create_edge(&h5, &h6);
-        // g_dfs.create_edge(&h6, &h7);
-        // g_dfs.create_edge(&h6, &h8);
-        // g_dfs.create_edge(&h8, &h9);
-        // g_dfs.create_edge(&h9, &h10);
-        // g_dfs.create_edge(&h9, &h11);
-        // g_dfs.create_edge(&h11, &h12);
-        // g_dfs.create_edge(&h11, &h13);
-        // g_dfs.create_edge(&h13, &h14);
-        // g_dfs.create_edge(&h13, &h15);
-        // g_dfs.create_edge(&h15, &h16);
-        // g_dfs.create_edge(&h16, &h17);
-        // g_dfs.create_edge(&h16, &h18);
-        // g_dfs.create_edge(&h18, &h19);
-
-        // println!("g_dfs is: {:?}",g_dfs);
-   
-
-        g_dfs.for_each_handle(|h| {
-                                    display_node_edges(&g_dfs, &h);
+        g_bfs.for_each_handle(|h| {
+                                    display_node_edges(&g_bfs, &h);
                                     true
                                   });
         
-        let (distances_map, ordered_node_id_list) = bfs_distances(&g_dfs, &NodeId::from(1)); 
+        let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1)); 
         //println!("distances map: {:?}",distances_map);
         //println!("ordered_node_id_list: {:?}",ordered_node_id_list);
         
-        // TODO: find a better inplace solution
-        // maybe use btreemap directly
-        let mut sorted_2 = BTreeMap::new();
-        for (id, value) in distances_map.iter() {
-            sorted_2.insert(id, value);
-        }
         println!("\nNode --> Distance from root");
-        for (node_id, distance) in sorted_2.iter() {
+        for (node_id, distance) in distances_map.iter() {
             println!("{} - distance from root: {}", node_id, distance);
         }
 
-        let mut dist_to_num_nodes : HashMap<u64,usize> = HashMap::new();
+        let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
 
         for (_, distance) in distances_map.iter() {
             if !dist_to_num_nodes.contains_key(&distance) {
@@ -481,17 +417,9 @@ fn main() {
             }
             *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
         }
-
-        
-        // TODO: find a better inplace solution
-        // maybe use btreemap directly
-        let mut sorted_3 = BTreeMap::new();
-        for (id, value) in dist_to_num_nodes.iter() {
-            sorted_3.insert(id, value);
-        }
         
         println!("\nDistance from root --> Num. nodes");
-        for (k,v) in sorted_3.iter() {
+        for (k,v) in dist_to_num_nodes.iter() {
             println!("{} --> {}", k, v);
         }
 
@@ -504,18 +432,18 @@ fn main() {
             let key = distances_map[&node_id];
             if dist_to_num_nodes[&key] == 1 {
                 if !first_bubble {
-                    println!("{} END {:?} {}", node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
+                    println!("{} END {:?} {}", node_id, node_id_to_path_and_pos_map[&node_id],g_bfs.get_sequence(&g_bfs.get_handle(node_id, false)));
                     
                     let latest_bubble = possible_bubbles_list.last_mut().unwrap();
                     latest_bubble.1 = node_id;
                 }
                 first_bubble = false;
-                println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_dfs.get_sequence(&g_dfs.get_handle(node_id, false)));
+                println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_bfs.get_sequence(&g_bfs.get_handle(node_id, false)));
                 pair.0 = node_id;
                 possible_bubbles_list.push(pair); //Ok, pair.2 is a placeholder
                 //println!("Possible bubbles: {:?}",possible_bubbles_list);
             } else {
-                println!("{} Bubble {:?} {:?}",node_id, node_id_to_path_and_pos_map[&node_id], g_dfs.get_sequence(&g_dfs.get_handle(node_id,false)));
+                println!("{} Bubble {:?} {:?}",node_id, node_id_to_path_and_pos_map[&node_id], g_bfs.get_sequence(&g_bfs.get_handle(node_id,false)));
             }
         }
 
@@ -524,45 +452,45 @@ fn main() {
         println!("Possible bubbles list: {:?}",possible_bubbles_list);
 
         //Compress bubble list
-        let mut possible_bubbles_list_compressed : Vec<(NodeId,NodeId)> = Vec::new();
-        let mut temp : (NodeId, NodeId) = (NodeId::from(0),NodeId::from(0));
-        let mut open_bubble = false;
-        for (start, end) in possible_bubbles_list {
-            if end==start+1 {
-                if !open_bubble {
-                    temp.0 = start;
-                    temp.1 = end;
-                    open_bubble = true;
-                } else {
-                    temp.1 = end;
-                }
-            } else {
-                if open_bubble {
+        // let mut possible_bubbles_list_compressed : Vec<(NodeId,NodeId)> = Vec::new();
+        // let mut temp : (NodeId, NodeId) = (NodeId::from(0),NodeId::from(0));
+        // let mut open_bubble = false;
+        // for (start, end) in possible_bubbles_list {
+        //     if end==start+1 {
+        //         if !open_bubble {
+        //             temp.0 = start;
+        //             temp.1 = end;
+        //             open_bubble = true;
+        //         } else {
+        //             temp.1 = end;
+        //         }
+        //     } else {
+        //         if open_bubble {
                     
-                    if temp.1 == start {
-                        // Extend open bubble
-                        temp.1 = end;
+        //             if temp.1 == start {
+        //                 // Extend open bubble
+        //                 temp.1 = end;
 
-                        possible_bubbles_list_compressed.push(temp);
-                        temp.0 = NodeId::from(0);
-                        temp.1 = NodeId::from(0);
-                        open_bubble = false;
+        //                 possible_bubbles_list_compressed.push(temp);
+        //                 temp.0 = NodeId::from(0);
+        //                 temp.1 = NodeId::from(0);
+        //                 open_bubble = false;
 
-                        continue;
+        //                 continue;
 
-                        //Do not push (start,end) since already inserted
-                    }
+        //                 //Do not push (start,end) since already inserted
+        //             }
 
-                    possible_bubbles_list_compressed.push(temp);
-                    temp.0 = NodeId::from(0);
-                    temp.1 = NodeId::from(0);
-                    open_bubble = false;
-                }
-                possible_bubbles_list_compressed.push((start, end));
-            }
-        }
-
-        println!("Possible bubbles list compressed: {:?}",possible_bubbles_list_compressed);
+        //             possible_bubbles_list_compressed.push(temp);
+        //             temp.0 = NodeId::from(0);
+        //             temp.1 = NodeId::from(0);
+        //             open_bubble = false;
+        //         }
+        //         possible_bubbles_list_compressed.push((start, end));
+        //     }
+        // }
+        //
+        //println!("Possible bubbles list compressed: {:?}",possible_bubbles_list_compressed);
 
         println!("\n------------------");
 
@@ -592,7 +520,7 @@ fn main() {
             }
  
             // Evaluate each possible bubble on reference path
-            for (start,end) in &possible_bubbles_list_compressed {
+            for (start,end) in &possible_bubbles_list {
                 
                 println!("ref_path: {:?}",ref_path);
                 println!("Bubble [{},{}]",start, end);
