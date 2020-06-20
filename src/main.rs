@@ -339,7 +339,7 @@ fn main() {
         println!("Path to steps map");
         println!("{:?}",path_to_steps_map);
         
-        // Obtains, for each node_id, the starting position in terms of actual sequence length, according to path
+        // Obtains, for each node, its position in each path where the node is in
         let mut node_id_to_path_and_pos_map : BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
         for (path_name, steps_list) in &mut path_to_steps_map {
             let mut pos = 0;
@@ -540,7 +540,7 @@ fn main() {
                     let mut pos_ref = node_id_to_path_and_pos_map[start][current_ref]+1;
                     let mut pos_path = pos_ref;
 
-                    println!("Start paths position: {}",pos_ref);
+                    //println!("Start paths position: {}",pos_ref);
 
                     let max_index = cmp::min(path.len(), ref_path.len());
 
@@ -555,10 +555,10 @@ fn main() {
 
                     for _i in 0..max_index {
                         //println!("\nDEBUG:");
-                        println!("Current index step path: {}",current_index_step_path);
-                        println!("Current index step ref: {}",current_index_step_ref);
-                        println!("Max index: {}",max_index);
-                        println!("Start node index in ref path: {}\n",start_node_index_in_ref_path);
+                        //println!("Current index step path: {}",current_index_step_path);
+                        //println!("Current index step ref: {}",current_index_step_ref);
+                        //println!("Max index: {}",max_index);
+                        //println!("Start node index in ref path: {}\n",start_node_index_in_ref_path);
                         
                         let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
                         let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
@@ -771,6 +771,13 @@ mod tests {
     use handlegraph::handlegraph::HandleGraph;
     use super::*;
 
+    //Used in other tests
+    fn read_test_gfa() -> HashGraph {
+        use gfa::parser::parse_gfa;
+
+        HashGraph::from_gfa(&parse_gfa(&PathBuf::from("./input/samplePath3.gfa")).unwrap())
+    }
+
     #[test]
     fn test_dfs_1() {
         let mut graph = HashGraph::new();
@@ -859,4 +866,127 @@ mod tests {
 
         //println!("{:?}",g_dfs);
     }
+
+    #[test]
+    fn test_path_to_steps() {
+        
+        let graph = read_test_gfa();
+
+        let mut path_to_steps_map : HashMap<String,Vec<String>> = HashMap::new();
+
+        graph.for_each_path_handle(|p| {
+            graph.for_each_step_in_path(&p, 
+                                        |s| {
+                                            create_into_hashmap(&graph, 
+                                                                &mut path_to_steps_map, 
+                                                                &p, 
+                                                                &s);
+                                            true
+                                            });
+            true
+        });
+
+        // Check if all paths have been found
+        assert_eq!(path_to_steps_map.keys().len(), 3);
+        assert!(path_to_steps_map.contains_key("x"));
+        assert!(path_to_steps_map.contains_key("y"));
+        assert!(path_to_steps_map.contains_key("z"));
+        
+
+        //Check for each path that all its node have been found
+
+        //P	x	1+,3+,5+,6+,8+,9+,11+,12+,13+,15+,16+,18+,19+
+        let path_x : Vec<String> = vec!["1+".to_string(),
+                                        "3+".to_string(),
+                                        "5+".to_string(),
+                                        "6+".to_string(),
+                                        "8+".to_string(),
+                                        "9+".to_string(),
+                                        "11+".to_string(),
+                                        "12+".to_string(),
+                                        "13+".to_string(),
+                                        "15+".to_string(),
+                                        "16+".to_string(),
+                                        "18+".to_string(),
+                                        "19+".to_string()];
+        assert_eq!(*path_to_steps_map.get("x").unwrap(), path_x);
+
+        //P	y	1+,2+,5+,6+,8+,9+,10+,11+,13+,14+,16+,17+,19+
+        let path_y : Vec<String> = vec!["1+".to_string(),
+                                        "2+".to_string(),
+                                        "5+".to_string(),
+                                        "6+".to_string(),
+                                        "8+".to_string(),
+                                        "9+".to_string(),
+                                        "10+".to_string(),
+                                        "11+".to_string(),
+                                        "13+".to_string(),
+                                        "14+".to_string(),
+                                        "16+".to_string(),
+                                        "17+".to_string(),
+                                        "19+".to_string()];
+        assert_eq!(*path_to_steps_map.get("y").unwrap(), path_y);
+
+        //P	z	1+,2+,4+,6+,7+,9+,10+,11+,12+,13+,14+,16+,18+,19+
+        let path_z : Vec<String> = vec!["1+".to_string(),
+                                        "2+".to_string(),
+                                        "4+".to_string(),
+                                        "6+".to_string(),
+                                        "7+".to_string(),
+                                        "9+".to_string(),
+                                        "10+".to_string(),
+                                        "11+".to_string(),
+                                        "12+".to_string(),
+                                        "13+".to_string(),
+                                        "14+".to_string(),
+                                        "16+".to_string(),
+                                        "18+".to_string(),
+                                        "19+".to_string()];
+        assert_eq!(*path_to_steps_map.get("z").unwrap(), path_z);        
+    }
+
+    #[test]
+    fn test_bfs() {
+        let graph = read_test_gfa();
+        let mut g_bfs = HashGraph::new();
+        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+
+        // All nodes must be present in bfs
+        assert_eq!(graph.get_node_count(), g_bfs.get_node_count());
+
+        // There should be less (or the same number of) edges in g_bfs
+        // since nodes can only get added once
+        assert!(graph.get_edge_count() >= g_bfs.get_edge_count());
+    }
+
+    #[test]
+    fn test_bfs_distances() {
+        let graph = read_test_gfa();
+        let mut g_bfs = HashGraph::new();
+        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+        
+        let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
+
+        // Should pass easily
+        assert_eq!(distances_map[&NodeId::from(2)], distances_map[&NodeId::from(3)]);
+        assert_eq!(distances_map[&NodeId::from(4)], distances_map[&NodeId::from(5)]);
+        assert_eq!(distances_map[&NodeId::from(7)], distances_map[&NodeId::from(8)]);
+
+        // Caused problems in dfs
+        assert_eq!(distances_map[&NodeId::from(10)], distances_map[&NodeId::from(11)]);
+        assert_eq!(distances_map[&NodeId::from(12)], distances_map[&NodeId::from(13)]);
+
+        //Should pass easily
+        assert_eq!(distances_map[&NodeId::from(14)], distances_map[&NodeId::from(15)]);
+        assert_eq!(distances_map[&NodeId::from(17)], distances_map[&NodeId::from(18)]);
+
+        // Check ordered_node_list now
+        let mut sorted = ordered_node_id_list.clone();
+        sorted.sort();
+        assert!(ordered_node_id_list.eq(&sorted));
+    }
+
+    
+
+
 }
