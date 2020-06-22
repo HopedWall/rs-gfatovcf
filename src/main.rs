@@ -12,28 +12,28 @@ extern crate clap;
 use clap::{Arg, App};
 extern crate chrono;
 use chrono::Utc;
-use std::io::{BufReader,BufRead};
 use std::collections::VecDeque;
 use std::collections::HashSet;
 use std::cmp;
-use std::iter::FromIterator;
 use std::cmp::Ordering;
 
 
 struct Variant {
     chromosome: String,
-    position: i32,
+    position: String,
     id: String,
     reference: String,
     alternate: String,
-    quality: i32,
+    quality: String,
     filter: String,
     info: String,
+    format: String,
+    sample_name: String
 }
 
 
 /// Returns a step as a String with NodeId and Orientation
-fn process_step(g : &HashGraph, h : &Handle) -> String {
+fn process_step(h : &Handle) -> String {
     let is_rev = h.is_reverse();
     let id = h.id();
     
@@ -55,7 +55,7 @@ fn create_into_hashmap(g : &HashGraph, path_to_steps : &mut HashMap<String, Vec<
     if !path_to_steps.contains_key(path_name) {
         path_to_steps.insert(String::from(path_name), Vec::new());
     }
-    path_to_steps.get_mut(path_name).unwrap().push(process_step(g, step));
+    path_to_steps.get_mut(path_name).unwrap().push(process_step(step));
     true
 }
 
@@ -216,7 +216,7 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
                        possible_bubbles_list : &Vec<(NodeId,NodeId)>,
                        graph : &HashGraph,
                        node_id_to_path_and_pos_map : &BTreeMap<NodeId, HashMap<String, usize>>,
-                    ) -> Vec<Vec<String>> {
+                    ) -> Vec<Variant> {
     
     let mut stuff_to_alts_map : HashMap<String, HashSet<String>> = HashMap::new();
     
@@ -238,7 +238,7 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
     
     }
 
-    let mut vcf_list : Vec<Vec<String>> = Vec::new();
+    let mut vcf_list : Vec<Variant> = Vec::new();
     for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_map {
          
          let vec: Vec<&str> = chrom_pos_ref.split("_").collect();
@@ -260,13 +260,26 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
 
          let alts = alt_list.join(",");
          let types = type_set.join(";TYPE=");
-         let list_to_append = [chrom, pos,".",refr,&alts,".",".", "TYPE=",&types, "GT", "0|1"];
-         vcf_list.push(Vec::from_iter(list_to_append.iter().map(|&x| String::from(x))));
+
+         let v = Variant {
+            chromosome: chrom.to_string(),
+            position: pos.to_string(),
+            id: ".".to_string(),
+            reference: refr.to_string(),
+            alternate: alts,
+            quality: ".".to_string(),
+            filter: ".".to_string(),
+            info: format!("TYPE={}", types),
+            format: "GT".to_string(),
+            sample_name: "0|1".to_string(),            
+        };
+
+         vcf_list.push(v);
     }
 
     vcf_list.sort_by(|a, b| {
-        match a[0].cmp(&b[0]) {
-            Ordering::Equal => a[1].parse::<i32>().unwrap().cmp(&b[1].parse::<i32>().unwrap()),
+        match a.chromosome.cmp(&b.chromosome) {
+            Ordering::Equal => a.position.parse::<i32>().unwrap().cmp(&b.position.parse::<i32>().unwrap()),
             other => other,
         }});
 
@@ -596,7 +609,7 @@ fn main() {
 
 }
 
-fn write_to_file(path: &PathBuf, variations: &Vec<Vec<String>>) -> std::io::Result<()> {
+fn write_to_file(path: &PathBuf, variations: &Vec<Variant>) -> std::io::Result<()> {
     let mut file = File::create(path).expect(&format!("Error creating file {:?}", path));
 
     let header = [
@@ -614,16 +627,16 @@ fn write_to_file(path: &PathBuf, variations: &Vec<Vec<String>>) -> std::io::Resu
     file.write("\n".as_bytes()).expect("Error writing to file");
     for var in variations {
         let to_write = format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
-                                var[0], 
-                                var[1], 
-                                var[2], 
-                                var[3], 
-                                var[4], 
-                                var[5], 
-                                var[6],
-                                format!("{}{}",var[7],var[8]),
-                                var[9],
-                                var[10]);
+                                var.chromosome, 
+                                var.position, 
+                                var.id, 
+                                var.reference, 
+                                var.alternate, 
+                                var.quality, 
+                                var.filter,
+                                var.info,
+                                var.format,
+                                var.sample_name);
         file.write(to_write.as_bytes()).expect("Error writing variant");
     }
     Ok(())
@@ -767,7 +780,7 @@ mod tests {
         let mut g_bfs = HashGraph::new();
         new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
         
-        let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
+        let (distances_map, _) = bfs_distances(&g_bfs, &NodeId::from(1));
         let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
         for (_, distance) in distances_map.iter() {
             if !dist_to_num_nodes.contains_key(&distance) {
