@@ -165,6 +165,39 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (BTreeMap<NodeId
     (distances_map, ordered_node_id_list)
 }
 
+fn detect_bubbles(distances_map : &BTreeMap<NodeId,u64>, ordered_node_id_list : &Vec<NodeId>, 
+                  dist_to_num_nodes : &BTreeMap<u64,usize>) -> Vec<(NodeId,NodeId)> {
+    
+    let mut possible_bubbles_list : Vec<(NodeId,NodeId)> = Vec::new();
+    let mut first_bubble = true;
+
+    for node_id in ordered_node_id_list {
+        let mut pair : (NodeId,NodeId) = (NodeId::from(0),NodeId::from(0));
+        let key = distances_map[&node_id];
+        if dist_to_num_nodes[&key] == 1 {
+            if !first_bubble {
+                //println!("{} END {:?} {}", node_id, node_id_to_path_and_pos_map[&node_id],g_bfs.get_sequence(&g_bfs.get_handle(node_id, false)));
+                
+                let latest_bubble = possible_bubbles_list.last_mut().unwrap();
+                latest_bubble.1 = *node_id;
+            }
+            first_bubble = false;
+            //println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_bfs.get_sequence(&g_bfs.get_handle(node_id, false)));
+            pair.0 = *node_id;
+            possible_bubbles_list.push(pair); //Ok, pair.2 is a placeholder
+            //println!("Possible bubbles: {:?}",possible_bubbles_list);
+        } 
+        //else {
+            //println!("{} Bubble {:?} {:?}",node_id, node_id_to_path_and_pos_map[&node_id], g_bfs.get_sequence(&g_bfs.get_handle(node_id,false)));
+        //}
+    }
+
+    //Delete last bubble, won't be used anyway
+    possible_bubbles_list.pop();
+
+    possible_bubbles_list
+}
+
 //Computes a different bfs
 // fn new_dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : &NodeId) {
 //     let current_handle = g.get_handle(*node_id, false);
@@ -214,7 +247,7 @@ fn new_bfs(g : &HashGraph, g_bfs : &mut HashGraph, node_id : &NodeId) {
 }
 
 // Find all paths not in g_dfs but in dfs
-fn find_bubbles(g : &HashGraph, g_dfs : &HashGraph, node_id : &NodeId, bubbles_vector : &mut Vec<(NodeId, NodeId)>) {
+fn find_bubbles_dfs(g : &HashGraph, g_dfs : &HashGraph, node_id : &NodeId, bubbles_vector : &mut Vec<(NodeId, NodeId)>) {
     let current_handle = g.get_handle(*node_id, false);
 
     g.follow_edges(
@@ -223,14 +256,14 @@ fn find_bubbles(g : &HashGraph, g_dfs : &HashGraph, node_id : &NodeId, bubbles_v
         |neighbor| {
             if !g_dfs.has_edge(&current_handle, neighbor) {
                 let possible_bubble : (NodeId, NodeId) = (*node_id,NodeId::from(0)); 
-                find_bubbles_support(&g, &g_dfs, &neighbor, bubbles_vector, possible_bubble);
+                find_bubbles_dfs_support(&g, &g_dfs, &neighbor, bubbles_vector, possible_bubble);
             }
             //find_bubbles(g, g_dfs, &g.get_id(neighbor), bubbles_vector);
             true
     });    
 }
 // Once a bubble opening has been found, continue exploring the graph
-fn find_bubbles_support(g : &HashGraph, g_dfs : &HashGraph, node_handle : &Handle, 
+fn find_bubbles_dfs_support(g : &HashGraph, g_dfs : &HashGraph, node_handle : &Handle, 
                         bubbles_vector : &mut Vec<(NodeId, NodeId)>,
                         mut current_bubble : (NodeId, NodeId)) {
         
@@ -246,9 +279,9 @@ fn find_bubbles_support(g : &HashGraph, g_dfs : &HashGraph, node_handle : &Handl
                     bubbles_vector.push(current_bubble);
                 }
                 //Continue searching new bubble
-                find_bubbles(g, g_dfs, &g.get_id(neighbor), bubbles_vector);
+                find_bubbles_dfs(g, g_dfs, &g.get_id(neighbor), bubbles_vector);
             } else {
-                find_bubbles_support(g, g_dfs, neighbor, 
+                find_bubbles_dfs_support(g, g_dfs, neighbor, 
                     bubbles_vector, current_bubble);
             }
             true
@@ -369,9 +402,6 @@ fn main() {
         //println!("Node id to path and pos");
         //println!("{:?}",node_id_to_path_and_pos_map);
 
-        //println!("Sorted");
-        //println!("{:?}",sorted);
-
         for node_id in node_id_to_path_and_pos_map.keys() {
             let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
             println!("Node_id : {}", node_id);
@@ -382,18 +412,8 @@ fn main() {
         }
 
         let mut g_bfs = HashGraph::new();
-        // Attempt a bfs
+
         new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
-        // See distances
-        g_bfs.for_each_handle(|h| {
-            display_node_edges(&g_bfs, &h);
-            true
-          });
-
-
-        //let mut bubbles_dfs : Vec<(NodeId,NodeId)> = Vec::new();
-        //find_bubbles(&graph, &g_dfs,&NodeId::from(1), &mut bubbles_dfs);
-        //println!("Bubbles DFS: {:?}",bubbles_dfs);
 
         g_bfs.for_each_handle(|h| {
                                     display_node_edges(&g_bfs, &h);
@@ -409,8 +429,9 @@ fn main() {
             println!("{} - distance from root: {}", node_id, distance);
         }
 
+        //Obtain a map where, for each distance from root, the number of nodes
+        //at that distance are present
         let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
-
         for (_, distance) in distances_map.iter() {
             if !dist_to_num_nodes.contains_key(&distance) {
                 dist_to_num_nodes.insert(*distance,0);
@@ -424,73 +445,7 @@ fn main() {
         }
 
         println!("\nBubbles");
-        let mut possible_bubbles_list : Vec<(NodeId,NodeId)> = Vec::new();
-        let mut first_bubble = true;
-
-        for node_id in ordered_node_id_list {
-            let mut pair : (NodeId,NodeId) = (NodeId::from(0),NodeId::from(0));
-            let key = distances_map[&node_id];
-            if dist_to_num_nodes[&key] == 1 {
-                if !first_bubble {
-                    println!("{} END {:?} {}", node_id, node_id_to_path_and_pos_map[&node_id],g_bfs.get_sequence(&g_bfs.get_handle(node_id, false)));
-                    
-                    let latest_bubble = possible_bubbles_list.last_mut().unwrap();
-                    latest_bubble.1 = node_id;
-                }
-                first_bubble = false;
-                println!("{} START {:?} {}",node_id, node_id_to_path_and_pos_map[&node_id],g_bfs.get_sequence(&g_bfs.get_handle(node_id, false)));
-                pair.0 = node_id;
-                possible_bubbles_list.push(pair); //Ok, pair.2 is a placeholder
-                //println!("Possible bubbles: {:?}",possible_bubbles_list);
-            } else {
-                println!("{} Bubble {:?} {:?}",node_id, node_id_to_path_and_pos_map[&node_id], g_bfs.get_sequence(&g_bfs.get_handle(node_id,false)));
-            }
-        }
-
-        println!("Possible bubbles list: {:?}",possible_bubbles_list);
-        possible_bubbles_list.pop(); //Remove last bubble, should not be considered
-        println!("Possible bubbles list: {:?}",possible_bubbles_list);
-
-        //Compress bubble list
-        // let mut possible_bubbles_list_compressed : Vec<(NodeId,NodeId)> = Vec::new();
-        // let mut temp : (NodeId, NodeId) = (NodeId::from(0),NodeId::from(0));
-        // let mut open_bubble = false;
-        // for (start, end) in possible_bubbles_list {
-        //     if end==start+1 {
-        //         if !open_bubble {
-        //             temp.0 = start;
-        //             temp.1 = end;
-        //             open_bubble = true;
-        //         } else {
-        //             temp.1 = end;
-        //         }
-        //     } else {
-        //         if open_bubble {
-                    
-        //             if temp.1 == start {
-        //                 // Extend open bubble
-        //                 temp.1 = end;
-
-        //                 possible_bubbles_list_compressed.push(temp);
-        //                 temp.0 = NodeId::from(0);
-        //                 temp.1 = NodeId::from(0);
-        //                 open_bubble = false;
-
-        //                 continue;
-
-        //                 //Do not push (start,end) since already inserted
-        //             }
-
-        //             possible_bubbles_list_compressed.push(temp);
-        //             temp.0 = NodeId::from(0);
-        //             temp.1 = NodeId::from(0);
-        //             open_bubble = false;
-        //         }
-        //         possible_bubbles_list_compressed.push((start, end));
-        //     }
-        // }
-        //
-        //println!("Possible bubbles list compressed: {:?}",possible_bubbles_list_compressed);
+        let possible_bubbles_list : Vec<(NodeId,NodeId)> = detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
         println!("\n------------------");
 
@@ -789,10 +744,10 @@ mod tests {
         let mut g_dfs = HashGraph::new();
         dfs(&graph,&mut g_dfs,&h1.id());
 
-        g_dfs.for_each_handle(|h| {
-            display_node_edges(&g_dfs, &h);
-            true
-        });
+        // g_dfs.for_each_handle(|h| {
+        //     display_node_edges(&g_dfs, &h);
+        //     true
+        // });
         
     }
 
@@ -821,10 +776,10 @@ mod tests {
         let mut g_dfs = HashGraph::new();
         dfs(&graph,&mut g_dfs,&h1.id());
 
-        g_dfs.for_each_handle(|h| {
-            display_node_edges(&g_dfs, &h);
-            true
-        });
+        // g_dfs.for_each_handle(|h| {
+        //     display_node_edges(&g_dfs, &h);
+        //     true
+        // });
 
         //println!("{:?}",graph);
         //println!("{:?}",g_dfs);
@@ -859,10 +814,10 @@ mod tests {
 
         //println!("{:?}",graph);
 
-        g_dfs.for_each_handle(|h| {
-            display_node_edges(&g_dfs, &h);
-            true
-        });
+        // g_dfs.for_each_handle(|h| {
+        //     display_node_edges(&g_dfs, &h);
+        //     true
+        // });
 
         //println!("{:?}",g_dfs);
     }
@@ -984,6 +939,72 @@ mod tests {
         let mut sorted = ordered_node_id_list.clone();
         sorted.sort();
         assert!(ordered_node_id_list.eq(&sorted));
+    }
+
+    #[test]
+    fn test_dist_to_num_nodes() {
+        let graph = read_test_gfa();
+        let mut g_bfs = HashGraph::new();
+        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+        
+        let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
+        let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
+        for (_, distance) in distances_map.iter() {
+            if !dist_to_num_nodes.contains_key(&distance) {
+                dist_to_num_nodes.insert(*distance,0);
+            }
+            *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
+        }
+
+        //println!("{:#?}",dist_to_num_nodes);
+
+        //Root
+        assert_eq!(dist_to_num_nodes[&0], 1);
+
+        assert_eq!(dist_to_num_nodes[&1], 2);
+        assert_eq!(dist_to_num_nodes[&2], 2);
+        assert_eq!(dist_to_num_nodes[&3], 1);
+        assert_eq!(dist_to_num_nodes[&4], 2);
+        assert_eq!(dist_to_num_nodes[&5], 1);
+
+        // Critical, did not work with dfs
+        assert_eq!(dist_to_num_nodes[&6], 2);
+        assert_eq!(dist_to_num_nodes[&7], 2);
+        assert_eq!(dist_to_num_nodes[&8], 2);
+
+        assert_eq!(dist_to_num_nodes[&9], 1);
+        assert_eq!(dist_to_num_nodes[&10], 2);
+        assert_eq!(dist_to_num_nodes[&11], 1);
+    }
+
+    #[test]
+    fn test_bubble_detection() {
+        let graph = read_test_gfa();
+        let mut g_bfs = HashGraph::new();
+        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+        
+        let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
+        let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
+        for (_, distance) in distances_map.iter() {
+            if !dist_to_num_nodes.contains_key(&distance) {
+                dist_to_num_nodes.insert(*distance,0);
+            }
+            *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
+        }
+
+        let possible_bubbles_list : Vec<(NodeId,NodeId)> = detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
+
+        //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
+        
+        assert!(possible_bubbles_list.contains(&(NodeId::from(1), NodeId::from(6))));
+        assert!(possible_bubbles_list.contains(&(NodeId::from(6), NodeId::from(9))));
+        assert!(possible_bubbles_list.contains(&(NodeId::from(9), NodeId::from(16))));
+        assert!(possible_bubbles_list.contains(&(NodeId::from(16), NodeId::from(19))));
+    }
+
+    #[test]
+    fn test_variant_detection() {
+        
     }
 
     
