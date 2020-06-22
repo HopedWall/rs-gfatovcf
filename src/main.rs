@@ -84,7 +84,6 @@ fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id :
     }
 }
 
-// This function can be optimized via closures!
 /// Finds the distance of each node from a given root
 fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (BTreeMap<NodeId,u64>, Vec<NodeId>) {
     let mut visited_node_id_set : HashSet<NodeId> = HashSet::new();
@@ -113,7 +112,10 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (BTreeMap<NodeId
             &current_node, 
             Direction::Right, 
             |neighbor| {
-                calculate_distance(&mut visited_node_id_set, &current_node_id, &g.get_id(neighbor), &mut q, &mut distances_map);
+                calculate_distance(&mut visited_node_id_set, 
+                                   &current_node_id, &g.get_id(neighbor), 
+                                   &mut q, 
+                                   &mut distances_map);
                 true
             });
     }
@@ -220,6 +222,8 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
     
     let mut stuff_to_alts_map : HashMap<String, HashSet<String>> = HashMap::new();
     
+    // Taking each known path as reference, explore all bubbles in order to find variants;
+    // these will be stored in stuff_to_alts_map
     for current_ref in path_to_steps_map.keys() {
         
         //Obtain all steps for each path
@@ -238,6 +242,7 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
     
     }
 
+    // Convert stuff_to_alts_map to a more readable format
     let mut vcf_list : Vec<Variant> = Vec::new();
     for (chrom_pos_ref, alt_type_set) in &stuff_to_alts_map {
          
@@ -277,6 +282,7 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
          vcf_list.push(v);
     }
 
+    // Sort vcf_list for printing variants in the correct order
     vcf_list.sort_by(|a, b| {
         match a.chromosome.cmp(&b.chromosome) {
             Ordering::Equal => a.position.parse::<i32>().unwrap().cmp(&b.position.parse::<i32>().unwrap()),
@@ -285,8 +291,7 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
 
     vcf_list
 }
-fn detect_variants_per_reference(
-                                 current_ref : &String,
+fn detect_variants_per_reference(current_ref : &String,
                                  ref_path : &Vec<u64>, 
                                  possible_bubbles_list : &Vec<(NodeId, NodeId)>,
                                  graph : &HashGraph,
@@ -319,21 +324,10 @@ fn detect_variants_per_reference(
 
             let max_index = cmp::min(path.len(), ref_path.len());
 
-            //println!("\nDEBUG:");
-            //println!("Path: {:?}", path);
-            //println!("Ref_Path: {:?}\n", ref_path);
-            //println!("path: {} ref_path: {}", path.len(), ref_path.len());
-            //println!("max_index: {}",max_index);
-
             let mut current_index_step_path = 0;
             let mut current_index_step_ref = 0;
 
             for _i in 0..max_index {
-                //println!("\nDEBUG:");
-                //println!("Current index step path: {}",current_index_step_path);
-                //println!("Current index step ref: {}",current_index_step_ref);
-                //println!("Max index: {}",max_index);
-                //println!("Start node index in ref path: {}\n",start_node_index_in_ref_path);
                 
                 let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
                 let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
@@ -835,9 +829,13 @@ mod tests {
         assert!(possible_bubbles_list.contains(&(NodeId::from(16), NodeId::from(19))));
     }
 
+    fn run_whole_script() {
+        
+    }
+
     #[test]
     fn test_variant_detection() {
-
+        //TODO: think how to easily do it!
     }
 
 }
