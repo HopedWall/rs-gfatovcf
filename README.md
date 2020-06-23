@@ -40,6 +40,8 @@ Where:
 - **input_file.gfa** is the gfa file that will be used to build the graph
 - **output_file.vcf** is the vcf file that will be used to store the variants
 
+You can also add the **-v** (or **--verbose**) argument to display various debug messages.
+
 ## How it works
 - Run a BFS on the graph from a node X, obtain a tree rooted in X
 - Explore the tree level-by-level to obtain bubbles:
