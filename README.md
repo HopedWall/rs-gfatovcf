@@ -2,6 +2,16 @@
 GFAtoVCF is a tool that finds variants in a Variation Graph. Refer to [this link](https://gsocgraph.blogspot.com/) for further details.
 
 ## How to run this tool
+First, clone this repo and move to the resulting directory:
+
+```
+git clone https://github.com/HopedWall/GFAtoVCF
+cd GFAtoVCF
+```
+
+Create a new **./dep** folder, this will contain the dependecies for this program.
+
+
 To compile the program, run:
 
 ```
