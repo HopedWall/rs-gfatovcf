@@ -1,5 +1,4 @@
 //! # GFAtoVCF
-//!
 //! `GFAtoVCF` is a tool that finds variants in a Variation Graph.
 
 use std::collections::HashMap;
@@ -56,7 +55,7 @@ fn process_step(h : &Handle) -> String {
     let is_rev = h.is_reverse();
     let id = h.id();
     
-    //Added display trait in rs-handlegraph
+    // Added display trait in rs-handlegraph
     let mut result = id.to_string();
     
     if is_rev == true {
@@ -67,7 +66,6 @@ fn process_step(h : &Handle) -> String {
 
     result
 }
-
 /// Returns all paths as a hashmap, having the path_name as key and a list of steps as values
 fn create_into_hashmap(g : &HashGraph, path_to_steps : &mut HashMap<String, Vec<String>>,  path : &PathId, step : &Handle) -> bool {    
     let path_name = g.get_path_name(path);
@@ -77,6 +75,63 @@ fn create_into_hashmap(g : &HashGraph, path_to_steps : &mut HashMap<String, Vec<
     path_to_steps.get_mut(path_name).unwrap().push(process_step(step));
     true
 }
+/// Converts paths to sequences of nodes
+fn paths_to_steps(graph : &HashGraph) -> HashMap<String,Vec<String>> {
+    let mut path_to_steps_map : HashMap<String,Vec<String>> = HashMap::new();
+
+    graph.for_each_path_handle(|p| {
+        graph.for_each_step_in_path(&p, 
+                                    |s| {
+                                        create_into_hashmap(&graph, 
+                                                            &mut path_to_steps_map, 
+                                                            &p, 
+                                                            &s);
+                                        true
+                                        });
+        true
+    });
+
+    path_to_steps_map
+}
+
+/// Wrapper function for bfs_new
+fn bfs(g : &HashGraph, node_id : &NodeId) -> HashGraph {
+    let mut g_bfs = HashGraph::new();
+    bfs_new(g, &mut g_bfs, node_id);
+    g_bfs
+}
+
+/// Computes the bfs of a given variation graph
+fn bfs_new(g : &HashGraph, g_bfs : &mut HashGraph, node_id : &NodeId) {
+    let current_handle = g.get_handle(*node_id, false);
+    let mut added_handles : Vec<Handle> = vec![];
+
+    if !g_bfs.has_node(*node_id) {
+        g_bfs.create_handle(g.get_sequence(&current_handle), *node_id);
+    }
+
+    g.follow_edges(
+        &current_handle,
+        Direction::Right,
+        |neighbor| {
+            if !g_bfs.has_node(g.get_id(neighbor)) {
+                let h = g_bfs.create_handle(
+                    g.get_sequence(&neighbor), 
+                    g.get_id(&neighbor)
+                );
+                added_handles.push(h);
+                g_bfs.create_edge(&current_handle, neighbor);
+            }
+            
+            true
+        });
+    
+    for h in &added_handles {
+        bfs_new(g, g_bfs, &g.get_id(h));
+    }
+        
+}
+
 
 /// Prints an edge of a given HashGraph
 fn show_edge(g_dfs : &HashGraph, a : &Handle, b : &Handle) {
@@ -102,7 +157,6 @@ fn calculate_distance(visited_node_id_set : &mut HashSet<NodeId>, prev_node_id :
         visited_node_id_set.insert(*neighbour_id);
     }
 }
-
 /// Finds the distance of each node from a given root
 fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (BTreeMap<NodeId,u64>, Vec<NodeId>) {
     let mut visited_node_id_set : HashSet<NodeId> = HashSet::new();
@@ -142,6 +196,36 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (BTreeMap<NodeId
     (distances_map, ordered_node_id_list)
 }
 
+/// Returns how many nodes are at the same distance
+fn get_dist_to_num_nodes(distances_map : &BTreeMap<NodeId, u64>) -> BTreeMap<u64,usize> {
+    
+    let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
+
+    for (_, distance) in distances_map.iter() {
+        if !dist_to_num_nodes.contains_key(&distance) {
+            dist_to_num_nodes.insert(*distance,0);
+        }
+        *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
+    }
+
+    dist_to_num_nodes
+}
+
+/// Returns paths as sequences
+fn get_path_to_sequence(graph : &HashGraph, path_to_steps_map : &HashMap<String,Vec<String>>) -> HashMap<String,String> {
+    let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
+
+    for (path_name, steps_list) in path_to_steps_map {
+        path_to_sequence_map.insert(path_name.to_string(), String::new());
+
+         for node_id_rev in steps_list {
+             path_to_sequence_map.get_mut(path_name).unwrap().push_str(graph.get_sequence(&graph.get_handle(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false)));
+         }
+    }
+
+    path_to_sequence_map
+}
+
 /// Detects the bubbles in a variation graph
 fn detect_bubbles(distances_map : &BTreeMap<NodeId,u64>, ordered_node_id_list : &Vec<NodeId>, 
                   dist_to_num_nodes : &BTreeMap<u64,usize>) -> Vec<(NodeId,NodeId)> {
@@ -167,44 +251,6 @@ fn detect_bubbles(distances_map : &BTreeMap<NodeId,u64>, ordered_node_id_list : 
     possible_bubbles_list.pop();
 
     possible_bubbles_list
-}
-
-///Wrapper function for bfs_new
-fn bfs(g : &HashGraph, node_id : &NodeId) -> HashGraph {
-    let mut g_bfs = HashGraph::new();
-    bfs_new(g, &mut g_bfs, node_id);
-    g_bfs
-}
-
-///Computes the bfs of a given variation graph
-fn bfs_new(g : &HashGraph, g_bfs : &mut HashGraph, node_id : &NodeId) {
-    let current_handle = g.get_handle(*node_id, false);
-    let mut added_handles : Vec<Handle> = vec![];
-
-    if !g_bfs.has_node(*node_id) {
-        g_bfs.create_handle(g.get_sequence(&current_handle), *node_id);
-    }
-
-    g.follow_edges(
-        &current_handle,
-        Direction::Right,
-        |neighbor| {
-            if !g_bfs.has_node(g.get_id(neighbor)) {
-                let h = g_bfs.create_handle(
-                    g.get_sequence(&neighbor), 
-                    g.get_id(&neighbor)
-                );
-                added_handles.push(h);
-                g_bfs.create_edge(&current_handle, neighbor);
-            }
-            
-            true
-        });
-    
-    for h in &added_handles {
-        bfs_new(g, g_bfs, &g.get_id(h));
-    }
-        
 }
 
 /// Prints all paths between two nodes
@@ -550,55 +596,6 @@ fn get_node_positions_in_paths(graph : &HashGraph, path_to_steps_map : &mut Hash
     }
     
     node_id_to_path_and_pos_map
-}
-
-/// Converts paths to sequences of nodes
-fn paths_to_steps(graph : &HashGraph) -> HashMap<String,Vec<String>> {
-    let mut path_to_steps_map : HashMap<String,Vec<String>> = HashMap::new();
-
-    graph.for_each_path_handle(|p| {
-        graph.for_each_step_in_path(&p, 
-                                    |s| {
-                                        create_into_hashmap(&graph, 
-                                                            &mut path_to_steps_map, 
-                                                            &p, 
-                                                            &s);
-                                        true
-                                        });
-        true
-    });
-
-    path_to_steps_map
-}
-
-/// Returns how many nodes are at the same distance
-fn get_dist_to_num_nodes(distances_map : &BTreeMap<NodeId, u64>) -> BTreeMap<u64,usize> {
-    
-    let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
-
-    for (_, distance) in distances_map.iter() {
-        if !dist_to_num_nodes.contains_key(&distance) {
-            dist_to_num_nodes.insert(*distance,0);
-        }
-        *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
-    }
-
-    dist_to_num_nodes
-}
-
-/// Returns paths as sequences
-fn get_path_to_sequence(graph : &HashGraph, path_to_steps_map : &HashMap<String,Vec<String>>) -> HashMap<String,String> {
-    let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
-
-    for (path_name, steps_list) in path_to_steps_map {
-        path_to_sequence_map.insert(path_name.to_string(), String::new());
-
-         for node_id_rev in steps_list {
-             path_to_sequence_map.get_mut(path_name).unwrap().push_str(graph.get_sequence(&graph.get_handle(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false)));
-         }
-    }
-
-    path_to_sequence_map
 }
 
 /// The function that runs the script
