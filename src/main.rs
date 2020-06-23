@@ -31,6 +31,21 @@ struct Variant {
     sample_name: String
 }
 
+impl PartialEq for Variant {
+    fn eq(&self, other: &Self) -> bool {
+        self.chromosome == other.chromosome &&
+        self.position == other.position &&
+        self.id == other.id &&
+        self.reference == other.reference &&
+        self.alternate == other.alternate &&
+        self.quality == other.quality &&
+        self.filter == other.filter &&
+        self.info == other.info &&
+        self.format == other.format &&
+        self.sample_name == other.sample_name
+    }
+}
+
 
 /// Returns a step as a String with NodeId and Orientation
 fn process_step(h : &Handle) -> String {
@@ -149,7 +164,14 @@ fn detect_bubbles(distances_map : &BTreeMap<NodeId,u64>, ordered_node_id_list : 
     possible_bubbles_list
 }
 
-//Computes a different bfs
+//Wrapper function for new_bfs
+fn bfs(g : &HashGraph, node_id : &NodeId) -> HashGraph {
+    let mut g_bfs = HashGraph::new();
+    new_bfs(g, &mut g_bfs, node_id);
+    g_bfs
+}
+
+//Computes the bfs
 fn new_bfs(g : &HashGraph, g_bfs : &mut HashGraph, node_id : &NodeId) {
     let current_handle = g.get_handle(*node_id, false);
     let mut added_handles : Vec<Handle> = vec![];
@@ -277,7 +299,7 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
             info: format!("TYPE={}", types),
             format: "GT".to_string(),
             sample_name: "0|1".to_string(),            
-        };
+         };
 
          vcf_list.push(v);
     }
@@ -577,9 +599,8 @@ fn main() {
         //     }
         // }
 
-        let mut g_bfs = HashGraph::new();
-
-        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+        //Obtains the tree representing the bfs
+        let g_bfs : HashGraph = bfs(&graph, &NodeId::from(1));
 
         // g_bfs.for_each_handle(|h| {
         //                             display_node_edges(&g_bfs, &h);
@@ -595,7 +616,7 @@ fn main() {
         //     println!("{} - distance from root: {}", node_id, distance);
         // }
 
-        //Obtain a map where, for each distance from root, the number of nodes
+        //Obtains a map where, for each distance from root, the number of nodes
         //at that distance are present
         let dist_to_num_nodes : BTreeMap<u64,usize> = get_dist_to_num_nodes(&distances_map);
         
@@ -606,7 +627,6 @@ fn main() {
 
         println!("\nBubbles");
         let possible_bubbles_list : Vec<(NodeId,NodeId)> = detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
-
         println!("Detected bubbles {:#?}",possible_bubbles_list);
         println!("\n------------------");
 
@@ -853,13 +873,84 @@ mod tests {
         assert!(possible_bubbles_list.contains(&(NodeId::from(16), NodeId::from(19))));
     }
 
-    fn run_whole_script() {
+    fn run_whole_script() -> Vec<Variant> {
+        let graph = read_test_gfa();
+
+        //Obtain preliminary data required for future steps
+        let mut path_to_steps_map : HashMap<String,Vec<String>> = paths_to_steps(&graph);
+        let node_id_to_path_and_pos_map : BTreeMap<NodeId, HashMap<String, usize>> = get_node_positions_in_paths(&graph, &mut path_to_steps_map);
         
+        //Compute bfs and analyze the results
+        let g_bfs : HashGraph = bfs(&graph, &NodeId::from(1));
+        let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1)); 
+        let dist_to_num_nodes : BTreeMap<u64,usize> = get_dist_to_num_nodes(&distances_map);
+        
+        //Find the bubbles
+        let possible_bubbles_list : Vec<(NodeId,NodeId)> = detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
+        
+        //Find variants from bubbles
+        let vcf_list = detect_all_variants(&path_to_steps_map, 
+            &possible_bubbles_list, 
+            &graph, 
+            &node_id_to_path_and_pos_map);
+
+        vcf_list
     }
 
     #[test]
     fn test_variant_detection() {
-        //TODO: think how to easily do it!
+        let variants_found = run_whole_script();
+
+        //Check that all variants have been found
+        assert_eq!(variants_found.len(), 21);
+
+        //Check one variant per type
+
+        //x	9	.	G	A	.	.	TYPE=snv	GT	0|1
+        let snv = Variant {
+            chromosome: "x".to_string(),
+            position: "9".to_string(),
+            id: ".".to_string(),
+            reference: "G".to_string(),
+            alternate: "A".to_string(),
+            quality: ".".to_string(),
+            filter: ".".to_string(),
+            info: format!("TYPE={}", "snv"),
+            format: "GT".to_string(),
+            sample_name: "0|1".to_string(),            
+        };
+        assert!(variants_found.contains(&snv));
+
+        //x	18	.	T	TAA	.	.	TYPE=ins	GT	0|1
+        let ins = Variant {
+            chromosome: "x".to_string(),
+            position: "18".to_string(),
+            id: ".".to_string(),
+            reference: "T".to_string(),
+            alternate: "TAA".to_string(),
+            quality: ".".to_string(),
+            filter: ".".to_string(),
+            info: format!("TYPE={}", "ins"),
+            format: "GT".to_string(),
+            sample_name: "0|1".to_string(),            
+        };
+        assert!(variants_found.contains(&ins));
+
+        //y	18	.	TAA	T	.	.	TYPE=del	GT	0|1
+        let del = Variant {
+            chromosome: "y".to_string(),
+            position: "18".to_string(),
+            id: ".".to_string(),
+            reference: "TAA".to_string(),
+            alternate: "T".to_string(),
+            quality: ".".to_string(),
+            filter: ".".to_string(),
+            info: format!("TYPE={}", "del"),
+            format: "GT".to_string(),
+            sample_name: "0|1".to_string(),            
+        };
+        assert!(variants_found.contains(&del));
+
     }
 
 }
