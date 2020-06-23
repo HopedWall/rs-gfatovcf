@@ -1,3 +1,7 @@
+//! # GFAtoVCF
+//!
+//! `GFAtoVCF` is a tool that finds variants in a Variation Graph.
+
 use std::collections::HashMap;
 use std::collections::BTreeMap; //like hashmap but sorted
 use std::path::PathBuf;
@@ -17,6 +21,7 @@ use std::collections::HashSet;
 use std::cmp;
 use std::cmp::Ordering;
 
+/// A struct that holds Variants, as defined in the VCF format
 struct Variant {
     chromosome: String,
     position: String,
@@ -137,6 +142,7 @@ fn bfs_distances(g : &HashGraph, starting_node_id : &NodeId) -> (BTreeMap<NodeId
     (distances_map, ordered_node_id_list)
 }
 
+/// Detects the bubbles in a variation graph
 fn detect_bubbles(distances_map : &BTreeMap<NodeId,u64>, ordered_node_id_list : &Vec<NodeId>, 
                   dist_to_num_nodes : &BTreeMap<u64,usize>) -> Vec<(NodeId,NodeId)> {
     
@@ -163,15 +169,15 @@ fn detect_bubbles(distances_map : &BTreeMap<NodeId,u64>, ordered_node_id_list : 
     possible_bubbles_list
 }
 
-//Wrapper function for new_bfs
+///Wrapper function for bfs_new
 fn bfs(g : &HashGraph, node_id : &NodeId) -> HashGraph {
     let mut g_bfs = HashGraph::new();
-    new_bfs(g, &mut g_bfs, node_id);
+    bfs_new(g, &mut g_bfs, node_id);
     g_bfs
 }
 
-//Computes the bfs
-fn new_bfs(g : &HashGraph, g_bfs : &mut HashGraph, node_id : &NodeId) {
+///Computes the bfs of a given variation graph
+fn bfs_new(g : &HashGraph, g_bfs : &mut HashGraph, node_id : &NodeId) {
     let current_handle = g.get_handle(*node_id, false);
     let mut added_handles : Vec<Handle> = vec![];
 
@@ -196,7 +202,7 @@ fn new_bfs(g : &HashGraph, g_bfs : &mut HashGraph, node_id : &NodeId) {
         });
     
     for h in &added_handles {
-        new_bfs(g, g_bfs, &g.get_id(h));
+        bfs_new(g, g_bfs, &g.get_id(h));
     }
         
 }
@@ -208,9 +214,7 @@ fn print_all_paths_util(g : &HashGraph, u : &NodeId, d : &NodeId, visited_node_i
         path_list.push(*u);
     }
 
-    //What does == mean exactly?
     if u == d {
-        //TODO: check this
         all_path_list.push(path_list.to_vec());
     } else {
         g.follow_edges(
@@ -235,6 +239,7 @@ fn print_all_paths(g : &HashGraph, start_node_id : &NodeId, end_node_id : &NodeI
     print_all_paths_util(g, start_node_id, end_node_id, &mut visited_node_id_set, &mut path_list, all_path_list);
 }
 
+/// Detects variants in a variation graph
 fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>, 
                        possible_bubbles_list : &Vec<(NodeId,NodeId)>,
                        graph : &HashGraph,
@@ -318,6 +323,7 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
 
     vcf_list
 }
+/// Detect variants for a specific reference
 fn detect_variants_per_reference(current_ref : &String,
                                  ref_path : &Vec<u64>, 
                                  possible_bubbles_list : &Vec<(NodeId, NodeId)>,
@@ -514,6 +520,7 @@ fn detect_variants_per_reference(current_ref : &String,
     }
 }
 
+/// Gets the position of a node in all the paths it is present in
 fn get_node_positions_in_paths(graph : &HashGraph, path_to_steps_map : &mut HashMap<String,Vec<String>>) -> BTreeMap<NodeId, HashMap<String, usize>> {
     let mut node_id_to_path_and_pos_map : BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
 
@@ -545,6 +552,7 @@ fn get_node_positions_in_paths(graph : &HashGraph, path_to_steps_map : &mut Hash
     node_id_to_path_and_pos_map
 }
 
+/// Converts paths to sequences of nodes
 fn paths_to_steps(graph : &HashGraph) -> HashMap<String,Vec<String>> {
     let mut path_to_steps_map : HashMap<String,Vec<String>> = HashMap::new();
 
@@ -563,6 +571,7 @@ fn paths_to_steps(graph : &HashGraph) -> HashMap<String,Vec<String>> {
     path_to_steps_map
 }
 
+/// Returns how many nodes are at the same distance
 fn get_dist_to_num_nodes(distances_map : &BTreeMap<NodeId, u64>) -> BTreeMap<u64,usize> {
     
     let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
@@ -577,6 +586,7 @@ fn get_dist_to_num_nodes(distances_map : &BTreeMap<NodeId, u64>) -> BTreeMap<u64
     dist_to_num_nodes
 }
 
+/// Returns paths as sequences
 fn get_path_to_sequence(graph : &HashGraph, path_to_steps_map : &HashMap<String,Vec<String>>) -> HashMap<String,String> {
     let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
 
@@ -591,6 +601,7 @@ fn get_path_to_sequence(graph : &HashGraph, path_to_steps_map : &HashMap<String,
     path_to_sequence_map
 }
 
+/// The function that runs the script
 fn main() {
 
     let matches = App::new("rs-GFAtoVCF")
@@ -703,7 +714,8 @@ fn main() {
 
 }
 
-fn write_to_file(path: &PathBuf, variations: &Vec<Variant>) -> std::io::Result<()> {
+/// Write variants to file
+fn write_to_file(path: &PathBuf, variants: &Vec<Variant>) -> std::io::Result<()> {
     let mut file = File::create(path).expect(&format!("Error creating file {:?}", path));
 
     let header = [
@@ -719,7 +731,7 @@ fn write_to_file(path: &PathBuf, variations: &Vec<Variant>) -> std::io::Result<(
     file.write(header.as_bytes()).expect("Error writing header");
 
     file.write("\n".as_bytes()).expect("Error writing to file");
-    for var in variations {
+    for var in variants {
         let to_write = format!("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
                                 var.chromosome, 
                                 var.position, 
@@ -831,7 +843,7 @@ mod tests {
     fn test_bfs() {
         let graph = read_test_gfa();
         let mut g_bfs = HashGraph::new();
-        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+        bfs_new(&graph, &mut g_bfs, &NodeId::from(1));
 
         // All nodes must be present in bfs
         assert_eq!(graph.get_node_count(), g_bfs.get_node_count());
@@ -845,7 +857,7 @@ mod tests {
     fn test_bfs_distances() {
         let graph = read_test_gfa();
         let mut g_bfs = HashGraph::new();
-        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+        bfs_new(&graph, &mut g_bfs, &NodeId::from(1));
         
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
 
@@ -872,7 +884,7 @@ mod tests {
     fn test_dist_to_num_nodes() {
         let graph = read_test_gfa();
         let mut g_bfs = HashGraph::new();
-        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+        bfs_new(&graph, &mut g_bfs, &NodeId::from(1));
         
         let (distances_map, _) = bfs_distances(&g_bfs, &NodeId::from(1));
         let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
@@ -908,7 +920,7 @@ mod tests {
     fn test_bubble_detection() {
         let graph = read_test_gfa();
         let mut g_bfs = HashGraph::new();
-        new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
+        bfs_new(&graph, &mut g_bfs, &NodeId::from(1));
         
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
         let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
