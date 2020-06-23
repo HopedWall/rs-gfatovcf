@@ -453,6 +453,83 @@ fn detect_variants_per_reference(current_ref : &String,
     println!("==========================================");
 }
 
+fn get_node_positions_in_paths(graph : &HashGraph, path_to_steps_map : &mut HashMap<String,Vec<String>>) -> BTreeMap<NodeId, HashMap<String, usize>> {
+    let mut node_id_to_path_and_pos_map : BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
+
+    for (path_name, steps_list) in path_to_steps_map {
+        let mut pos = 0;
+
+        for node_id_is_rev in steps_list {
+            
+            // Get orientation
+            let _is_rev = node_id_is_rev.pop().unwrap();
+            // Get the id of the node string -> NodeId
+            let node_id : NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
+            
+            let node_handle = graph.get_handle(node_id, false);
+            let seq = graph.get_sequence(&node_handle);
+
+            if !node_id_to_path_and_pos_map.contains_key(&node_id) {
+                node_id_to_path_and_pos_map.insert(node_id, HashMap::new());
+            }
+
+            if !node_id_to_path_and_pos_map[&node_id].contains_key(path_name) {
+                node_id_to_path_and_pos_map.get_mut(&node_id).unwrap().insert(String::from(path_name), pos);
+            }
+
+            pos += seq.len();
+        }
+    }
+    
+    node_id_to_path_and_pos_map
+}
+
+fn paths_to_steps(graph : &HashGraph) -> HashMap<String,Vec<String>> {
+    let mut path_to_steps_map : HashMap<String,Vec<String>> = HashMap::new();
+
+    graph.for_each_path_handle(|p| {
+        graph.for_each_step_in_path(&p, 
+                                    |s| {
+                                        create_into_hashmap(&graph, 
+                                                            &mut path_to_steps_map, 
+                                                            &p, 
+                                                            &s);
+                                        true
+                                        });
+        true
+    });
+
+    path_to_steps_map
+}
+
+fn get_dist_to_num_nodes(distances_map : &BTreeMap<NodeId, u64>) -> BTreeMap<u64,usize> {
+    
+    let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
+
+    for (_, distance) in distances_map.iter() {
+        if !dist_to_num_nodes.contains_key(&distance) {
+            dist_to_num_nodes.insert(*distance,0);
+        }
+        *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
+    }
+
+    dist_to_num_nodes
+}
+
+fn get_path_to_sequence(graph : &HashGraph, path_to_steps_map : &HashMap<String,Vec<String>>) -> HashMap<String,String> {
+    let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
+
+    for (path_name, steps_list) in path_to_steps_map {
+        path_to_sequence_map.insert(path_name.to_string(), String::new());
+
+         for node_id_rev in steps_list {
+             path_to_sequence_map.get_mut(path_name).unwrap().push_str(graph.get_sequence(&graph.get_handle(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false)));
+         }
+    }
+
+    path_to_sequence_map
+}
+
 fn main() {
 
     let matches = App::new("rs-GFAtoVCF")
@@ -485,89 +562,42 @@ fn main() {
         
         let graph = HashGraph::from_gfa(&gfa);
 
-        let mut path_to_steps_map : HashMap<String,Vec<String>> = HashMap::new();
-
-        graph.for_each_path_handle(|p| {
-            graph.for_each_step_in_path(&p, 
-                                        |s| {
-                                            create_into_hashmap(&graph, 
-                                                                &mut path_to_steps_map, 
-                                                                &p, 
-                                                                &s);
-                                            true
-                                            });
-            true
-        });
-
-        println!("Path to steps map");
-        println!("{:?}",path_to_steps_map);
+        // Obtains, for each path, a list of all its steps (its nodes)
+        let mut path_to_steps_map : HashMap<String,Vec<String>> = paths_to_steps(&graph);
         
         // Obtains, for each node, its position in each path where the node is in
-        let mut node_id_to_path_and_pos_map : BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
-        for (path_name, steps_list) in &mut path_to_steps_map {
-            let mut pos = 0;
+        let node_id_to_path_and_pos_map : BTreeMap<NodeId, HashMap<String, usize>> = get_node_positions_in_paths(&graph, &mut path_to_steps_map);
 
-            for node_id_is_rev in steps_list {
-                
-                // Get orientation
-                let _is_rev = node_id_is_rev.pop().unwrap();
-                // Get the id of the node string -> NodeId
-                let node_id : NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
-                
-                let node_handle = graph.get_handle(node_id, false);
-                let seq = graph.get_sequence(&node_handle);
+        // for node_id in node_id_to_path_and_pos_map.keys() {
+        //     let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
+        //     println!("Node_id : {}", node_id);
 
-                if !node_id_to_path_and_pos_map.contains_key(&node_id) {
-                    node_id_to_path_and_pos_map.insert(node_id, HashMap::new());
-                }
-
-                if !node_id_to_path_and_pos_map[&node_id].contains_key(path_name) {
-                    node_id_to_path_and_pos_map.get_mut(&node_id).unwrap().insert(String::from(path_name), pos);
-                }
-
-                pos += seq.len();
-            }
-        }
-
-        //println!("Node id to path and pos");
-        //println!("{:?}",node_id_to_path_and_pos_map);
-
-        for node_id in node_id_to_path_and_pos_map.keys() {
-            let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
-            println!("Node_id : {}", node_id);
-
-            for (path, pos) in path_and_pos_map.unwrap() {
-                println!("Path: {}  -- Pos: {}", path, pos);
-            }
-        }
+        //     for (path, pos) in path_and_pos_map.unwrap() {
+        //         println!("Path: {}  -- Pos: {}", path, pos);
+        //     }
+        // }
 
         let mut g_bfs = HashGraph::new();
 
         new_bfs(&graph, &mut g_bfs, &NodeId::from(1));
 
-        g_bfs.for_each_handle(|h| {
-                                    display_node_edges(&g_bfs, &h);
-                                    true
-                                  });
+        // g_bfs.for_each_handle(|h| {
+        //                             display_node_edges(&g_bfs, &h);
+        //                             true
+        //                           });
         
+
+        // Obtains, for each level of the tree, how many nodes are there
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1)); 
-        //println!("distances map: {:?}",distances_map);
-        //println!("ordered_node_id_list: {:?}",ordered_node_id_list);
         
-        println!("\nNode --> Distance from root");
-        for (node_id, distance) in distances_map.iter() {
-            println!("{} - distance from root: {}", node_id, distance);
-        }
+        // println!("\nNode --> Distance from root");
+        // for (node_id, distance) in distances_map.iter() {
+        //     println!("{} - distance from root: {}", node_id, distance);
+        // }
 
         //Obtain a map where, for each distance from root, the number of nodes
         //at that distance are present
-        let mut dist_to_num_nodes : BTreeMap<u64,usize> = BTreeMap::new();
-        for (_, distance) in distances_map.iter() {
-            if !dist_to_num_nodes.contains_key(&distance) {
-                dist_to_num_nodes.insert(*distance,0);
-            }
-            *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
-        }
+        let dist_to_num_nodes : BTreeMap<u64,usize> = get_dist_to_num_nodes(&distances_map);
         
         println!("\nDistance from root --> Num. nodes");
         for (k,v) in dist_to_num_nodes.iter() {
@@ -577,18 +607,12 @@ fn main() {
         println!("\nBubbles");
         let possible_bubbles_list : Vec<(NodeId,NodeId)> = detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
+        println!("Detected bubbles {:#?}",possible_bubbles_list);
         println!("\n------------------");
 
-        let mut path_to_sequence_map : HashMap<String,String> = HashMap::new();
-        for (path_name, steps_list) in &path_to_steps_map {
-            path_to_sequence_map.insert(path_name.to_string(), String::new());
-
-             for node_id_rev in steps_list {
-                 path_to_sequence_map.get_mut(path_name).unwrap().push_str(graph.get_sequence(&graph.get_handle(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false)));
-             }
-        }
-
-        println!("Path to sequence: {:?}",path_to_sequence_map);
+        //Obtains, for each path, a string representing all the bases of the path (not actually used)
+        //let _path_to_sequence_map : HashMap<String,String> = get_path_to_sequence(&graph, &path_to_steps_map);
+        //println!("Path to sequence: {:?}",path_to_sequence_map);
 
         let vcf_list = detect_all_variants(&path_to_steps_map, 
                                            &possible_bubbles_list, 
