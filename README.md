@@ -9,8 +9,20 @@ git clone https://github.com/HopedWall/GFAtoVCF
 cd GFAtoVCF
 ```
 
-Create a new **./dep** folder, this will contain the dependecies for this program.
+Create a new **dep** folder, that will contain the dependecies for this program. Then move to this folder.
 
+```
+mkdir dep
+cd dep
+```
+
+Download the required dependencies via git clone, and go back to the main folder
+
+```
+git clone https://github.com/HopedWall/rs-gfa
+git clone https://github.com/HopedWall/rs-handlegraph
+cd ..
+```
 
 To compile the program, run:
 
