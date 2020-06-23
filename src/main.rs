@@ -17,7 +17,6 @@ use std::collections::HashSet;
 use std::cmp;
 use std::cmp::Ordering;
 
-
 struct Variant {
     chromosome: String,
     position: String,
@@ -240,6 +239,7 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
                        possible_bubbles_list : &Vec<(NodeId,NodeId)>,
                        graph : &HashGraph,
                        node_id_to_path_and_pos_map : &BTreeMap<NodeId, HashMap<String, usize>>,
+                       verbose : bool
                     ) -> Vec<Variant> {
     
     let mut stuff_to_alts_map : HashMap<String, HashSet<String>> = HashMap::new();
@@ -250,7 +250,11 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
         
         //Obtain all steps for each path
         let mut ref_path = Vec::new();
-        println!("path_to_steps_map: {:?}",path_to_steps_map);
+        
+        if verbose {
+            println!("path_to_steps_map: {:?}",path_to_steps_map);
+        }
+        
         for x in &path_to_steps_map[current_ref] {
             ref_path.push(x.parse::<u64>().unwrap());
         }
@@ -260,7 +264,8 @@ fn detect_all_variants(path_to_steps_map : &HashMap<String,Vec<String>>,
                                       possible_bubbles_list, 
                                       graph,
                                       node_id_to_path_and_pos_map,
-                                      &mut stuff_to_alts_map);
+                                      &mut stuff_to_alts_map,
+                                      verbose);
     
     }
 
@@ -318,14 +323,18 @@ fn detect_variants_per_reference(current_ref : &String,
                                  possible_bubbles_list : &Vec<(NodeId, NodeId)>,
                                  graph : &HashGraph,
                                  node_id_to_path_and_pos_map : &BTreeMap<NodeId, HashMap<String, usize>>,
-                                 stuff_to_alts_map : &mut HashMap<String, HashSet<String>>
+                                 stuff_to_alts_map : &mut HashMap<String, HashSet<String>>,
+                                 verbose : bool
                                  ) {
 
     // Check all bubbles
     for (start,end) in possible_bubbles_list {
-                
-        println!("ref_path: {:?}",ref_path);
-        println!("Bubble [{},{}]",start, end);
+            
+        if verbose {
+            println!("ref_path: {:?}",ref_path);
+            println!("Bubble [{},{}]",start, end);
+        }
+        
 
         let start_node_index_in_ref_path : usize;
         match ref_path.iter().position(|&r| NodeId::from(r) == *start) {
@@ -338,11 +347,12 @@ fn detect_variants_per_reference(current_ref : &String,
 
         //println!("All paths list: {:?}",all_path_list);
         for path in &all_path_list {
-            println!("\tPath: {:?}", path);
+            if verbose {
+                println!("\tPath: {:?}", path);
+            }
+            
             let mut pos_ref = node_id_to_path_and_pos_map[start][current_ref]+1;
             let mut pos_path = pos_ref;
-
-            //println!("Start paths position: {}",pos_ref);
 
             let max_index = cmp::min(path.len(), ref_path.len());
 
@@ -354,9 +364,15 @@ fn detect_variants_per_reference(current_ref : &String,
                 let mut current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
                 let mut current_node_id_path = NodeId::from(path[current_index_step_path]);
                 
-                println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
+                if verbose {
+                    println!("{} {} ---> {} {}", pos_ref, pos_path, current_node_id_ref, current_node_id_path);
+                }
+                
                 if current_node_id_ref == current_node_id_path {
-                    println!("REFERENCE");
+                    if verbose {
+                        println!("REFERENCE");
+                    }
+                    
                     let node_seq = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
                     pos_ref += node_seq.len();
                     pos_path = pos_ref;
@@ -377,7 +393,10 @@ fn detect_variants_per_reference(current_ref : &String,
                     let succ_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path + 1]);
                     if succ_node_id_ref == current_node_id_path {
                         
-                        println!("DEL");
+                        if verbose {
+                            println!("DEL");
+                        }
+                        
                         let node_seq_ref = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
                         
                         let prec_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path - 1]);
@@ -408,10 +427,16 @@ fn detect_variants_per_reference(current_ref : &String,
 
                         current_index_step_ref += 1;
                         current_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path -1]);
-                        println!("\t {}", current_node_id_ref);
+                        if verbose {
+                            println!("\t {}", current_node_id_ref);
+                        }
+                        
                         continue;
                     } else if succ_node_id_path == current_node_id_ref {
-                        println!("INS");
+                        if verbose {
+                            println!("INS");
+                        }
+                        
                         let node_seq_path = graph.get_sequence(&graph.get_handle(current_node_id_path,false));
                         
                         let prec_node_id_ref = NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path-1]);
@@ -438,16 +463,25 @@ fn detect_variants_per_reference(current_ref : &String,
                         
                         current_index_step_path += 1;
                         current_node_id_path = path[current_index_step_path];
-                        println!("\t{}", current_node_id_path);
+                        if verbose {
+                            println!("\t{}", current_node_id_path);
+                        }
+                        
                         continue;
                     } else {
                         let node_seq_ref = graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
                         let node_seq_path = graph.get_sequence(&graph.get_handle(current_node_id_path, false));
 
                         if node_seq_ref == node_seq_path {
-                            println!("REFERENCE");
+                            if verbose {
+                                println!("REFERENCE");
+                            }
+                            
                         } else {
-                            println!("SNV");
+                            if verbose {
+                                println!("SNV");
+                            }
+                            
                         }
 
                         let key = [current_ref.to_string(), pos_path.to_string(), node_seq_ref.to_string()].join("_");
@@ -469,10 +503,15 @@ fn detect_variants_per_reference(current_ref : &String,
                     }
                 }
             }
-            println!("---");
+            if verbose {
+                println!("---");
+            }
+            
         }   
     }
-    println!("==========================================");
+    if verbose {
+        println!("==========================================");
+    }
 }
 
 fn get_node_positions_in_paths(graph : &HashGraph, path_to_steps_map : &mut HashMap<String,Vec<String>>) -> BTreeMap<NodeId, HashMap<String, usize>> {
@@ -572,10 +611,15 @@ fn main() {
                                .help("Sets the output file to use")
                                .required(true)
                                .takes_value(true))
+                          .arg(Arg::with_name("verbose")
+                               .short("v")
+                               .long("verbose")
+                               .help("Sets whether to display debug messages or not"))
                           .get_matches();
 
     let in_path_file = matches.value_of("input").expect("Could not parse argument --input");
     let out_path_file = matches.value_of("output").expect("Could not parse argument --output");
+    let verbose = matches.is_present("verbose");
 
     //let in_path_file = "./input/samplePath3.gfa";
     //let out_path_file = "./input/samplePath3.vcf";
@@ -590,54 +634,66 @@ fn main() {
         // Obtains, for each node, its position in each path where the node is in
         let node_id_to_path_and_pos_map : BTreeMap<NodeId, HashMap<String, usize>> = get_node_positions_in_paths(&graph, &mut path_to_steps_map);
 
-        // for node_id in node_id_to_path_and_pos_map.keys() {
-        //     let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
-        //     println!("Node_id : {}", node_id);
-
-        //     for (path, pos) in path_and_pos_map.unwrap() {
-        //         println!("Path: {}  -- Pos: {}", path, pos);
-        //     }
-        // }
+        if verbose {
+            for node_id in node_id_to_path_and_pos_map.keys() {
+                let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id); 
+                println!("Node_id : {}", node_id);
+    
+                for (path, pos) in path_and_pos_map.unwrap() {
+                    println!("Path: {}  -- Pos: {}", path, pos);
+                }
+            }
+        }
 
         //Obtains the tree representing the bfs
         let g_bfs : HashGraph = bfs(&graph, &NodeId::from(1));
 
-        // g_bfs.for_each_handle(|h| {
-        //                             display_node_edges(&g_bfs, &h);
-        //                             true
-        //                           });
+        if verbose {
+            g_bfs.for_each_handle(|h| {
+                display_node_edges(&g_bfs, &h);
+                true
+              });
+        }   
         
 
         // Obtains, for each level of the tree, how many nodes are there
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1)); 
         
-        // println!("\nNode --> Distance from root");
-        // for (node_id, distance) in distances_map.iter() {
-        //     println!("{} - distance from root: {}", node_id, distance);
-        // }
+        if verbose {
+            println!("\nNode --> Distance from root");
+            for (node_id, distance) in distances_map.iter() {
+                println!("{} - distance from root: {}", node_id, distance);
+            }
+        }
 
         //Obtains a map where, for each distance from root, the number of nodes
         //at that distance are present
         let dist_to_num_nodes : BTreeMap<u64,usize> = get_dist_to_num_nodes(&distances_map);
         
-        println!("\nDistance from root --> Num. nodes");
-        for (k,v) in dist_to_num_nodes.iter() {
-            println!("{} --> {}", k, v);
+        if verbose {
+            println!("\nDistance from root --> Num. nodes");
+            for (k,v) in dist_to_num_nodes.iter() {
+                println!("{} --> {}", k, v);
+            }
         }
-
-        println!("\nBubbles");
+        
         let possible_bubbles_list : Vec<(NodeId,NodeId)> = detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
-        println!("Detected bubbles {:#?}",possible_bubbles_list);
-        println!("\n------------------");
-
-        //Obtains, for each path, a string representing all the bases of the path (not actually used)
-        //let _path_to_sequence_map : HashMap<String,String> = get_path_to_sequence(&graph, &path_to_steps_map);
-        //println!("Path to sequence: {:?}",path_to_sequence_map);
+        
+        if verbose {
+            println!("\nBubbles");
+            println!("Detected bubbles {:#?}",possible_bubbles_list);
+            println!("\n------------------");
+        
+            //Obtains, for each path, a string representing all the bases of the path (not actually used)
+            let path_to_sequence_map : HashMap<String,String> = get_path_to_sequence(&graph, &path_to_steps_map);
+            println!("Path to sequence: {:?}",path_to_sequence_map);
+        }      
 
         let vcf_list = detect_all_variants(&path_to_steps_map, 
                                            &possible_bubbles_list, 
                                            &graph, 
-                                           &node_id_to_path_and_pos_map);
+                                           &node_id_to_path_and_pos_map,
+                                           verbose);
 
         //Write variants to file
         write_to_file(&PathBuf::from(out_path_file), &vcf_list).unwrap();
@@ -892,7 +948,8 @@ mod tests {
         let vcf_list = detect_all_variants(&path_to_steps_map, 
             &possible_bubbles_list, 
             &graph, 
-            &node_id_to_path_and_pos_map);
+            &node_id_to_path_and_pos_map,
+            false);
 
         vcf_list
     }
