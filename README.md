@@ -5,7 +5,7 @@ GFAtoVCF is a tool that finds variants in a Variation Graph. Refer to [this link
 First, clone this repo and move to the resulting directory:
 
 ```
-git clone --recursive https://github.com/HopedWall/GFAtoVCF
+git clone --recursive https://github.com/HopedWall/rs-gfatovcf
 cd GFAtoVCF
 ```
 
