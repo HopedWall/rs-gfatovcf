@@ -6,7 +6,7 @@ First, clone this repo and move to the resulting directory:
 
 ```
 git clone --recursive https://github.com/HopedWall/rs-gfatovcf
-cd GFAtoVCF
+cd rs-gfatovcf
 ```
 
 To compile the program, run:
