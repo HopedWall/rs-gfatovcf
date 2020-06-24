@@ -1,0 +1,6 @@
+[submodule "dep/rs-handlegraph"]
+	path = dep/rs-handlegraph
+	url = https://github.com/HopedWall/rs-handlegraph
+[submodule "dep/rs-gfa"]
+	path = dep/rs-gfa
+	url = https://github.com/HopedWall/rs-gfa
