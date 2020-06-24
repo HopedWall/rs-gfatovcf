@@ -72,5 +72,5 @@ Variant Calling consists in finding **Variants**, which are differences in terms
     - if ref\[i\] and path\[i+1\] are equal -> **INS**
     - if ref\[i\] and path\[i\] are different -> **SNV**
     
-This will be repeated for each reference path.
+This will be repeated for each reference path and for each bubble.
 
