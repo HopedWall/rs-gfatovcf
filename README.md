@@ -50,9 +50,9 @@ GFAtoVCF performs two main tasks during its execution:
 ### Bubble Detection
 A bubble consists of multiple directed unipaths (a path in which all internal vertices are of degree 2) between two vertices. Bubbles are commonly caused by a small number of errors in the centre of reads. More information can be found in [this paper](https://www.sciencedirect.com/science/article/pii/S0304397515009147#br0100)
 
-Detecting bubbles is important for converting a file from GFA to VCF since Variants will be found exclusively inside bubbles. In order to detect bubbles, we fist convert the starting graph into a tree; then, by looking at how many nodes are at the each level of the tree, we can easily understand whether or not a bubble has been found. The approach will now be described in more detail:
+Detecting bubbles is important for converting a file from GFA to VCF since Variants will be found exclusively inside bubbles. In order to detect bubbles, we fist build a support tree from the starting graph; then, by looking at how many nodes are at the each level of the tree, we can easily understand whether or not a bubble has been found. The approach will now be described in more detail:
 
-1. **Run a BFS on the graph starting from an arbitrary node X**, by doing so we obtain a tree rooted in X. We chose a BFS instead of a DFS since we wanted the order of the edges to not matter, and BFS achieves exactly that.
+1. **Run a BFS on the graph starting from a node X with no incoming edges**, by doing so we obtain a tree rooted in X. We chose a BFS instead of a DFS since we wanted the order of the edges to not matter, and BFS achieves exactly that.
 2. **Detect, for each level of the tree, how many nodes are at that level**, this will provide crucial information for detecting bubbles in the next step.
 3. **Detect bubbles** by analyzing the data structure obtained in the previous step; basically, we explore the tree level-by-level. The following situations are possible:
    - no bubble has been detected yet, a level with only 1 node is found -> **OPEN the bubble**
