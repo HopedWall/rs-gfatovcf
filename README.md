@@ -59,15 +59,18 @@ Detecting bubbles is important for converting a file from GFA to VCF since Varia
    - a bubble has already been detected, a level with multiple nodes is found -> **EXTEND the bubble**
    - a bubble has already been detected, a level with only 1 node is found -> **CLOSE the bubble**
     
-Each bubble is represented internally as a tuple: **(NodeId_Bubble_Start, NodeId_Bubble_End)**, this will allow us to easily explore the nodes in the graph inside the bubble. Note that this script is currently unable to detect *nested* bubbles, also known as **superbubbles**. 
+Each bubble is represented internally as a tuple of NodeIDs: **(Bubble_Start, Bubble_End)**, this will allow us to easily explore the nodes in the graph inside the bubble. Note that this script is currently unable to detect *nested* bubbles, also known as **superbubbles**. 
 
 ### Variant Calling
-Variant Calling consists in finding **Variants**, which are differences in terms of sequences from a reference genome. In the graph, all genomes (including the reference ones) are described as **paths**. This second steps mostly invoves exploring different paths and comparing them to the references; instead of comparing all possible paths on the graph (which would be computationally expensive), we only focus on paths inside each bubble (since Variants can **only** be found there).
+Variant Calling consists in finding **Variants**, which are differences in terms of sequences from a reference genome. In the graph, all genomes (including the reference ones) are described as **paths**. This second steps mostly invoves exploring different paths and comparing them to the references; instead of comparing all possible paths in the graph, we only focus on paths inside each bubble (since Variants can **only** be found there). The approach will now be described in more detail:
 
-- For each reference path (from the GFA file) and for each bubble:
-    - find all possible paths from NodeId_Bubble_Start to NodeId_Bubble_End. **Note that, by how bubbles are found, both NodeId_Bubble_Start and NodeId_Bubble_End will be present in all reference paths.**
-    - follow both paths (reference and other path) node by node, at the same time:
-        - if reference and path cross different nodes -> **SNV**
-        - if reference reaches NodeId_Bubble_End before path -> **INS**
-        - if path reaches NodeId_Bubble_End before reference -> **DEL**
+1. **Consider a reference path**: remember that a path is a list of nodes, so ref = \[r1,r2...rn\]
+2. **Compute all possible paths between Bubble_Start and Bubble_End**: each path will be represented as: path = \[p1,p2...pm\]
+3. **Compare reference path to each possible path**. Consider a generic index i s.t. i <= min(n,m):
+    - if ref\[i\] and path\[i\] are equal -> no variant found
+    - if ref\[i+1\] and path\[i\] are equal -> **DEL**
+    - if ref\[i\] and path\[i+1\] are equal -> **INS**
+    - if ref\[i\] and path\[i\] are different -> **SNV**
+    
+This will be repeated for each reference path.
 
