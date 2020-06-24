@@ -62,7 +62,7 @@ Detecting bubbles is important for converting a file from GFA to VCF since Varia
 Each bubble is represented internally as a tuple of NodeIDs: **(Bubble_Start, Bubble_End)**, this will allow us to easily explore the nodes in the graph inside the bubble. Note that this script is currently unable to detect *nested* bubbles, also known as **superbubbles**. 
 
 ### Variant Calling
-Variant Calling consists in finding **Variants**, which are differences in terms of sequences from a reference genome. In the graph, all genomes (including the reference ones) are described as **paths**. This second steps mostly invoves exploring different paths and comparing them to the references; instead of comparing all possible paths in the graph, we only focus on paths inside each bubble (since Variants can **only** be found there). The approach will now be described in more detail:
+Variant Calling consists in finding **Variants**, which are differences in terms of sequences from a reference genome. In the graph, all genomes, including the reference ones, are described as **paths**. This second steps mostly invoves exploring different paths and comparing them to the references; instead of comparing all possible paths in the graph, we only focus on paths inside each bubble (since Variants can **only** be found there). The approach will now be described in more detail:
 
 1. **Consider a reference path**: remember that a path is a list of nodes, so ref = \[r1,r2...rn\]
 2. **Compute all possible paths between Bubble_Start and Bubble_End**: each path will be represented as: path = \[p1,p2...pm\]
