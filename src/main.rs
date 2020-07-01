@@ -37,19 +37,13 @@ struct Variant {
 
 /// Returns a step as a String with NodeId and Orientation
 fn process_step(h: &Handle) -> String {
-    let is_rev = h.is_reverse();
-    let id = h.id();
-
-    // Added display trait in rs-handlegraph
-    let mut result = id.to_string();
-
-    if is_rev {
-        result.push_str("+");
+    let orient = if h.is_reverse() {
+        "+".to_string()
     } else {
-        result.push_str("-");
-    }
+        "-".to_string()
+    };
 
-    result
+    format!("{}{}", h.id().to_string(), orient)
 }
 /// Returns all paths as a hashmap, having the path_name as key and a list of steps as values
 fn create_into_hashmap(
@@ -59,18 +53,17 @@ fn create_into_hashmap(
     step: &Handle,
 ) -> bool {
     let path_name = g.get_path_name(path);
-    if !path_to_steps.contains_key(path_name) {
-        path_to_steps.insert(String::from(path_name), Vec::new());
-    }
+
     path_to_steps
-        .get_mut(path_name)
-        .unwrap()
+        .entry(path_name.to_string())
+        .or_default()
         .push(process_step(step));
+
     true
 }
 /// Converts paths to sequences of nodes
 fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
-    let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
+    let mut path_to_steps_map = HashMap::new();
 
     graph.for_each_path_handle(|p| {
         graph.for_each_step_in_path(&p, |s| {
@@ -86,12 +79,12 @@ fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
 /// Wrapper function for bfs_new
 fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     let mut g_bfs = HashGraph::new();
-    bfs_new(g, &mut g_bfs, node_id);
+    bfs_support(g, &mut g_bfs, node_id);
     g_bfs
 }
 
 /// Computes the bfs of a given variation graph
-fn bfs_new(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
+fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
     let current_handle = g.get_handle(*node_id, false);
     let mut added_handles: Vec<Handle> = vec![];
 
@@ -110,7 +103,7 @@ fn bfs_new(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
     });
 
     for h in &added_handles {
-        bfs_new(g, g_bfs, &g.get_id(h));
+        bfs_support(g, g_bfs, &g.get_id(h));
     }
 }
 
@@ -127,54 +120,37 @@ fn display_node_edges(g_dfs: &HashGraph, h: &Handle) {
     });
 }
 
-/// Calculates the distance of adjacent nodes
-fn calculate_distance(
-    visited_node_id_set: &mut HashSet<NodeId>,
-    prev_node_id: &NodeId,
-    neighbour_id: &NodeId,
-    q: &mut VecDeque<NodeId>,
-    distances_map: &mut BTreeMap<NodeId, u64>,
-) {
-    if !visited_node_id_set.contains(&neighbour_id) {
-        //Clone necessary due to https://github.com/rust-lang/rust/issues/59159
-        let previous_value = distances_map.get(prev_node_id).unwrap().clone();
-        distances_map.insert(*neighbour_id, previous_value + 1);
-        q.push_back(*neighbour_id);
-        visited_node_id_set.insert(*neighbour_id);
-    }
-}
 /// Finds the distance of each node from a given root
 fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<NodeId, u64>, Vec<NodeId>) {
-    let mut visited_node_id_set: HashSet<NodeId> = HashSet::new();
-    let mut ordered_node_id_list: Vec<NodeId> = Vec::new();
+    let mut visited_node_id_set = HashSet::new();
+    let mut ordered_node_id_list = Vec::new();
 
-    let mut distances_map: BTreeMap<NodeId, u64> = BTreeMap::new();
+    let mut distances_map = BTreeMap::new();
     let mut node_id_list = Vec::new();
+
     g.for_each_handle(|h| {
-        node_id_list.push(g.get_id(h));
+        let id = g.get_id(h);
+        node_id_list.push(id);
+        distances_map.insert(id, 0);
         true
     });
-    for node_id in node_id_list {
-        distances_map.insert(node_id, 0);
-    }
-    //node_id_list.clear();
 
     let mut q: VecDeque<NodeId> = VecDeque::new();
     q.push_back(*starting_node_id);
     visited_node_id_set.insert(*starting_node_id);
-    while !&q.is_empty() {
-        let current_node_id = q.pop_front().unwrap();
+    while let Some(current_node_id) = q.pop_front() {
+        //let current_node_id = q.pop_front().unwrap();
         let current_node = g.get_handle(current_node_id, false);
         ordered_node_id_list.push(current_node_id);
 
-        g.follow_edges(&current_node, Direction::Right, |neighbor| {
-            calculate_distance(
-                &mut visited_node_id_set,
-                &current_node_id,
-                &g.get_id(neighbor),
-                &mut q,
-                &mut distances_map,
-            );
+        g.follow_edges(&current_node, Direction::Right, |h| {
+            let n = h.id();
+            if !visited_node_id_set.contains(&n) {
+                let prev = *distances_map.get(&current_node_id).unwrap();
+                distances_map.insert(n, prev + 1);
+                q.push_back(n);
+                visited_node_id_set.insert(n);
+            }
             true
         });
     }
@@ -186,12 +162,9 @@ fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<NodeId, 
 fn get_dist_to_num_nodes(distances_map: &BTreeMap<NodeId, u64>) -> BTreeMap<u64, usize> {
     let mut dist_to_num_nodes: BTreeMap<u64, usize> = BTreeMap::new();
 
-    for (_, distance) in distances_map.iter() {
-        if !dist_to_num_nodes.contains_key(&distance) {
-            dist_to_num_nodes.insert(*distance, 0);
-        }
-        *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
-    }
+    distances_map.values().for_each(|dist| {
+        *dist_to_num_nodes.entry(*dist).or_default() += 1;
+    });
 
     dist_to_num_nodes
 }
@@ -242,7 +215,7 @@ fn detect_bubbles(
         }
     }
 
-    //Delete last bubble, won't be used anyway
+    //Delete last bubble, won't be used anyways
     possible_bubbles_list.pop();
 
     possible_bubbles_list
@@ -265,21 +238,17 @@ fn print_all_paths_util(
     if u == d {
         all_path_list.push(path_list.to_vec());
     } else {
-        g.follow_edges(
-            &g.get_handle(*u, false),
-            Direction::Right, //Is this correct?
-            |i_node| {
-                print_all_paths_util(
-                    g,
-                    &g.get_id(i_node),
-                    d,
-                    visited_node_id_set,
-                    path_list,
-                    all_path_list,
-                );
-                true
-            },
-        );
+        g.follow_edges(&g.get_handle(*u, false), Direction::Right, |i_node| {
+            print_all_paths_util(
+                g,
+                &g.get_id(i_node),
+                d,
+                visited_node_id_set,
+                path_list,
+                all_path_list,
+            );
+            true
+        });
     }
 
     path_list.pop();
@@ -321,15 +290,19 @@ fn detect_all_variants(
     // these will be stored in stuff_to_alts_map
     for current_ref in path_to_steps_map.keys() {
         //Obtain all steps for each path
-        let mut ref_path = Vec::new();
+        //let mut ref_path = vec![];
+        let ref_path: Vec<u64> = path_to_steps_map[current_ref]
+            .iter()
+            .map(|x| x.parse::<u64>().unwrap())
+            .collect();
 
         if verbose {
             println!("path_to_steps_map: {:?}", path_to_steps_map);
         }
 
-        for x in &path_to_steps_map[current_ref] {
-            ref_path.push(x.parse::<u64>().unwrap());
-        }
+        // for x in &path_to_steps_map[current_ref] {
+        //     ref_path.push(x.parse::<u64>().unwrap());
+        // }
 
         detect_variants_per_reference(
             &current_ref,
@@ -350,17 +323,13 @@ fn detect_all_variants(
         let pos = vec[1];
         let refr = vec[2];
 
-        let mut alt_list: Vec<String> = Vec::new();
-        for x in alt_type_set {
-            let split: Vec<&str> = x.split('_').collect();
-            alt_list.push(String::from(split[0]));
-        }
-
-        let mut type_set: Vec<&str> = Vec::new();
-        for x in alt_type_set {
-            let split: Vec<&str> = x.split('_').collect();
-            type_set.push(split[1]);
-        }
+        let (alt_list, type_set): (Vec<_>, Vec<_>) = alt_type_set
+            .iter()
+            .map(|x| {
+                let split: Vec<_> = x.split('_').collect();
+                (split[0].to_string(), split[1])
+            })
+            .unzip();
 
         let alts = alt_list.join(",");
         let types = type_set.join(";TYPE=");
@@ -490,9 +459,6 @@ fn detect_variants_per_reference(
 
                         let key =
                             [current_ref.to_string(), (pos_path - 1).to_string(), last].join("_");
-                        // if !stuff_to_alts_map.contains_key(&key) {
-                        //     stuff_to_alts_map.insert(key, HashSet::new());
-                        // }
                         stuff_to_alts_map.entry(key).or_insert(HashSet::new());
                         //TODO: find a better way to do this
                         let mut last = prec_nod_seq_ref.chars().last().unwrap().to_string();
@@ -539,9 +505,7 @@ fn detect_variants_per_reference(
                         //let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("_");
                         let key =
                             [current_ref.to_string(), (pos_ref - 1).to_string(), last].join("_");
-                        // if !stuff_to_alts_map.contains_key(&key) {
-                        //     stuff_to_alts_map.insert(key, HashSet::new());
-                        // }
+
                         stuff_to_alts_map.entry(key).or_insert(HashSet::new());
 
                         //Re-create key since it goes out of scope
@@ -589,9 +553,7 @@ fn detect_variants_per_reference(
                             node_seq_ref.to_string(),
                         ]
                         .join("_");
-                        // if !stuff_to_alts_map.contains_key(&key) {
-                        //     stuff_to_alts_map.insert(key, HashSet::new());
-                        // }
+
                         stuff_to_alts_map.entry(key).or_insert(HashSet::new());
 
                         //TODO: find a better way to do this
@@ -645,9 +607,6 @@ fn get_node_positions_in_paths(
             let node_handle = graph.get_handle(node_id, false);
             let seq = graph.get_sequence(&node_handle);
 
-            // if !node_id_to_path_and_pos_map.contains_key(&node_id) {
-            //     node_id_to_path_and_pos_map.insert(node_id, HashMap::new());
-            // }
             node_id_to_path_and_pos_map
                 .entry(node_id)
                 .or_insert(HashMap::new());
@@ -922,8 +881,7 @@ mod tests {
     #[test]
     fn test_bfs() {
         let graph = read_test_gfa();
-        let mut g_bfs = HashGraph::new();
-        bfs_new(&graph, &mut g_bfs, &NodeId::from(1));
+        let g_bfs = bfs(&graph, &NodeId::from(1));
 
         // All nodes must be present in bfs
         assert_eq!(graph.get_node_count(), g_bfs.get_node_count());
@@ -936,8 +894,7 @@ mod tests {
     #[test]
     fn test_bfs_distances() {
         let graph = read_test_gfa();
-        let mut g_bfs = HashGraph::new();
-        bfs_new(&graph, &mut g_bfs, &NodeId::from(1));
+        let g_bfs = bfs(&graph, &NodeId::from(1));
 
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
 
@@ -984,8 +941,7 @@ mod tests {
     #[test]
     fn test_dist_to_num_nodes() {
         let graph = read_test_gfa();
-        let mut g_bfs = HashGraph::new();
-        bfs_new(&graph, &mut g_bfs, &NodeId::from(1));
+        let g_bfs = bfs(&graph, &NodeId::from(1));
 
         let (distances_map, _) = bfs_distances(&g_bfs, &NodeId::from(1));
         let mut dist_to_num_nodes: BTreeMap<u64, usize> = BTreeMap::new();
@@ -1020,8 +976,7 @@ mod tests {
     #[test]
     fn test_bubble_detection() {
         let graph = read_test_gfa();
-        let mut g_bfs = HashGraph::new();
-        bfs_new(&graph, &mut g_bfs, &NodeId::from(1));
+        let g_bfs = bfs(&graph, &NodeId::from(1));
 
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
         let mut dist_to_num_nodes: BTreeMap<u64, usize> = BTreeMap::new();
