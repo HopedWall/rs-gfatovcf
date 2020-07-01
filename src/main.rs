@@ -1,11 +1,13 @@
 //! # GFAtoVCF
 //! `GFAtoVCF` is a tool that finds variants in a Variation Graph.
 
-use handlegraph::graph::HashGraph;
-use handlegraph::graph::PathId;
-use handlegraph::handle::{Direction, Handle, NodeId};
+use handlegraph::hashgraph::HashGraph;
+use handlegraph::hashgraph::PathId;
+use handlegraph::handle::{Direction, Handle, NodeId, Edge};
 use handlegraph::handlegraph::HandleGraph;
+use handlegraph::mutablehandlegraph::MutableHandleGraph;
 use handlegraph::pathgraph::PathHandleGraph;
+use handlegraph::handlegraph::{handle_edges_iter,handles_iter};
 use std::collections::BTreeMap; //like hashmap but sorted
 use std::collections::HashMap;
 use std::fs::File;
@@ -52,7 +54,7 @@ fn create_into_hashmap(
     path: &PathId,
     step: &Handle,
 ) -> bool {
-    let path_name = g.get_path_name(path);
+    let path_name = g.get_path(path).unwrap().name.clone();
 
     path_to_steps
         .entry(path_name.to_string())
@@ -65,13 +67,27 @@ fn create_into_hashmap(
 fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
     let mut path_to_steps_map = HashMap::new();
 
-    graph.for_each_path_handle(|p| {
-        graph.for_each_step_in_path(&p, |s| {
-            create_into_hashmap(&graph, &mut path_to_steps_map, &p, &s);
-            true
-        });
-        true
-    });
+    for path_id in std::iter::from_fn(graph.paths_iter_impl()) {
+        
+        // for step in std::iter::from_fn(graph.occurrences_iter_impl(path_id)) {
+        //     create_into_hashmap(&graph, &mut path_to_steps_map, &path_id, &step);
+        // }
+
+        let step = graph.path_begin(path_id);
+
+        while graph.has_next_step(&step) {
+            //create_into_hashmap(graph, &mut path_to_steps_map, path_id, step);
+        }
+
+    }
+
+    // graph.for_each_path_handle(|p| {
+    //     graph.for_each_step_in_path(&p, |s| {
+    //         create_into_hashmap(&graph, &mut path_to_steps_map, &p, &s);
+    //         true
+    //     });
+    //     true
+    // });
 
     path_to_steps_map
 }
@@ -79,45 +95,47 @@ fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
 /// Wrapper function for bfs_new
 fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     let mut g_bfs = HashGraph::new();
+    //let mut g_bfs = MutableHandleGraph::new();
     bfs_support(g, &mut g_bfs, node_id);
     g_bfs
 }
 
 /// Computes the bfs of a given variation graph
 fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
-    let current_handle = g.get_handle(*node_id, false);
+    let current_handle = Handle::pack(*node_id, false);
     let mut added_handles: Vec<Handle> = vec![];
 
     if !g_bfs.has_node(*node_id) {
-        g_bfs.create_handle(g.get_sequence(&current_handle), *node_id);
+        g_bfs.create_handle(g.sequence(current_handle), *node_id);
     }
 
-    g.follow_edges(&current_handle, Direction::Right, |neighbor| {
-        if !g_bfs.has_node(g.get_id(neighbor)) {
-            let h = g_bfs.create_handle(g.get_sequence(&neighbor), g.get_id(&neighbor));
+    for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
+        if !g_bfs.has_node(neighbor.id()) {
+            let h = g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
             added_handles.push(h);
-            g_bfs.create_edge(&current_handle, neighbor);
-        }
-
-        true
-    });
+            
+            let edge = Edge::edge_handle(current_handle, neighbor);
+            g_bfs.create_edge(&edge);
+        }       
+    }
 
     for h in &added_handles {
-        bfs_support(g, g_bfs, &g.get_id(h));
+        bfs_support(g, g_bfs, &h.id());
     }
 }
 
 /// Prints an edge of a given HashGraph
 fn show_edge(g_dfs: &HashGraph, a: &Handle, b: &Handle) {
-    println!("{} --> {}", g_dfs.get_id(a), g_dfs.get_id(b));
+    println!("{} --> {}", a.id(), b.id());
 }
 /// Prints all nodes and edges of a given HashGraph
 fn display_node_edges(g_dfs: &HashGraph, h: &Handle) {
-    println!("node {}", g_dfs.get_id(h));
-    g_dfs.follow_edges(h, Direction::Right, |n| {
-        show_edge(&g_dfs, h, n);
-        true
-    });
+    println!("node {}", h.id());
+
+    for n in handle_edges_iter(g_dfs, *h, Direction::Right) {
+        show_edge(&g_dfs, h, &n);
+    }
+
 }
 
 /// Finds the distance of each node from a given root
@@ -128,22 +146,21 @@ fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<NodeId, 
     let mut distances_map = BTreeMap::new();
     let mut node_id_list = Vec::new();
 
-    g.for_each_handle(|h| {
-        let id = g.get_id(h);
+    for handle in handles_iter(g) {
+        let id = handle.id();
         node_id_list.push(id);
         distances_map.insert(id, 0);
-        true
-    });
+    }
 
     let mut q: VecDeque<NodeId> = VecDeque::new();
     q.push_back(*starting_node_id);
     visited_node_id_set.insert(*starting_node_id);
     while let Some(current_node_id) = q.pop_front() {
         //let current_node_id = q.pop_front().unwrap();
-        let current_node = g.get_handle(current_node_id, false);
+        let current_node = Handle::pack(current_node_id, false);
         ordered_node_id_list.push(current_node_id);
 
-        g.follow_edges(&current_node, Direction::Right, |h| {
+        for h in handle_edges_iter(g, Handle::pack(current_node_id, false), Direction::Right) {
             let n = h.id();
             if !visited_node_id_set.contains(&n) {
                 let prev = *distances_map.get(&current_node_id).unwrap();
@@ -151,8 +168,7 @@ fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<NodeId, 
                 q.push_back(n);
                 visited_node_id_set.insert(n);
             }
-            true
-        });
+        }
     }
 
     (distances_map, ordered_node_id_list)
@@ -183,8 +199,8 @@ fn get_path_to_sequence(
             path_to_sequence_map
                 .get_mut(path_name)
                 .unwrap()
-                .push_str(graph.get_sequence(
-                    &graph.get_handle(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false),
+                .push_str(graph.sequence(
+                    Handle::pack(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false),
                 ));
         }
     }
@@ -238,17 +254,18 @@ fn print_all_paths_util(
     if u == d {
         all_path_list.push(path_list.to_vec());
     } else {
-        g.follow_edges(&g.get_handle(*u, false), Direction::Right, |i_node| {
+
+        for i_node in handle_edges_iter(g, Handle::pack(*u, false), Direction::Right) {
             print_all_paths_util(
                 g,
-                &g.get_id(i_node),
+                &i_node.id(),
                 d,
                 visited_node_id_set,
                 path_list,
                 all_path_list,
             );
-            true
-        });
+        }
+
     }
 
     path_list.pop();
@@ -420,7 +437,7 @@ fn detect_variants_per_reference(
                     }
 
                     let node_seq =
-                        graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
+                        graph.sequence(Handle::pack(current_node_id_ref, false));
                     pos_ref += node_seq.len();
                     pos_path = pos_ref;
 
@@ -445,13 +462,13 @@ fn detect_variants_per_reference(
                         }
 
                         let node_seq_ref =
-                            graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
+                            graph.sequence(Handle::pack(current_node_id_ref, false));
 
                         let prec_node_id_ref = NodeId::from(
                             ref_path[current_index_step_ref + start_node_index_in_ref_path - 1],
                         );
                         let prec_nod_seq_ref =
-                            graph.get_sequence(&graph.get_handle(prec_node_id_ref, false));
+                            graph.sequence(Handle::pack(prec_node_id_ref, false));
 
                         let mut last = prec_nod_seq_ref.chars().last().unwrap().to_string();
                         //This must be concatenated!
@@ -493,13 +510,13 @@ fn detect_variants_per_reference(
                         }
 
                         let node_seq_path =
-                            graph.get_sequence(&graph.get_handle(current_node_id_path, false));
+                            graph.sequence(Handle::pack(current_node_id_path, false));
 
                         let prec_node_id_ref = NodeId::from(
                             ref_path[current_index_step_ref + start_node_index_in_ref_path - 1],
                         );
                         let prec_nod_seq_ref =
-                            graph.get_sequence(&graph.get_handle(prec_node_id_ref, false));
+                            graph.sequence(Handle::pack(prec_node_id_ref, false));
 
                         let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
                         //let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("_");
@@ -533,9 +550,9 @@ fn detect_variants_per_reference(
                         continue;
                     } else {
                         let node_seq_ref =
-                            graph.get_sequence(&graph.get_handle(current_node_id_ref, false));
+                            graph.sequence(Handle::pack(current_node_id_ref, false));
                         let node_seq_path =
-                            graph.get_sequence(&graph.get_handle(current_node_id_path, false));
+                            graph.sequence(Handle::pack(current_node_id_path, false));
 
                         if node_seq_ref == node_seq_path {
                             if verbose {
@@ -604,8 +621,8 @@ fn get_node_positions_in_paths(
             // Get the id of the node string -> NodeId
             let node_id: NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
 
-            let node_handle = graph.get_handle(node_id, false);
-            let seq = graph.get_sequence(&node_handle);
+            let node_handle = Handle::pack(node_id, false);
+            let seq = graph.sequence(node_handle);
 
             node_id_to_path_and_pos_map
                 .entry(node_id)
@@ -693,10 +710,9 @@ fn main() {
         let g_bfs: HashGraph = bfs(&graph, &NodeId::from(1));
 
         if verbose {
-            g_bfs.for_each_handle(|h| {
+            for h in handles_iter(&g_bfs) {
                 display_node_edges(&g_bfs, &h);
-                true
-            });
+            }
         }
 
         // Obtains, for each level of the tree, how many nodes are there
@@ -790,7 +806,7 @@ fn write_to_file(path: &PathBuf, variants: &[Variant]) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handlegraph::graph::HashGraph;
+    use handlegraph::hashgraph::HashGraph;
     use handlegraph::handlegraph::HandleGraph;
 
     //Used in other tests
@@ -804,15 +820,7 @@ mod tests {
     fn test_path_to_steps() {
         let graph = read_test_gfa();
 
-        let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
-
-        graph.for_each_path_handle(|p| {
-            graph.for_each_step_in_path(&p, |s| {
-                create_into_hashmap(&graph, &mut path_to_steps_map, &p, &s);
-                true
-            });
-            true
-        });
+        let path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(&graph);
 
         // Check if all paths have been found
         assert_eq!(path_to_steps_map.keys().len(), 3);
@@ -884,11 +892,11 @@ mod tests {
         let g_bfs = bfs(&graph, &NodeId::from(1));
 
         // All nodes must be present in bfs
-        assert_eq!(graph.get_node_count(), g_bfs.get_node_count());
+        assert_eq!(graph.node_count(), g_bfs.node_count());
 
         // There should be less (or the same number of) edges in g_bfs
         // since nodes can only get added once
-        assert!(graph.get_edge_count() >= g_bfs.get_edge_count());
+        assert!(graph.edge_count() >= g_bfs.edge_count());
     }
 
     #[test]
