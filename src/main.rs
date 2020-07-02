@@ -8,6 +8,7 @@ use handlegraph::handlegraph::HandleGraph;
 use handlegraph::mutablehandlegraph::MutableHandleGraph;
 use handlegraph::pathgraph::PathHandleGraph;
 use handlegraph::handlegraph::{handle_edges_iter,handles_iter};
+use handlegraph::pathgraph::steps_iter;
 use std::collections::BTreeMap; //like hashmap but sorted
 use std::collections::HashMap;
 use std::fs::File;
@@ -65,29 +66,14 @@ fn create_into_hashmap(
 }
 /// Converts paths to sequences of nodes
 fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
-    let mut path_to_steps_map = HashMap::new();
+    let mut path_to_steps_map : HashMap<String, Vec<String>> = HashMap::new();
 
     for path_id in std::iter::from_fn(graph.paths_iter_impl()) {
-        
-        // for step in std::iter::from_fn(graph.occurrences_iter_impl(path_id)) {
-        //     create_into_hashmap(&graph, &mut path_to_steps_map, &path_id, &step);
-        // }
-
-        let step = graph.path_begin(path_id);
-
-        while graph.has_next_step(&step) {
-            //create_into_hashmap(graph, &mut path_to_steps_map, path_id, step);
+        for step in steps_iter(graph, path_id) {
+            let handle = graph.handle_of_step(&step).unwrap();
+            create_into_hashmap(graph, &mut path_to_steps_map, path_id, &handle);
         }
-
     }
-
-    // graph.for_each_path_handle(|p| {
-    //     graph.for_each_step_in_path(&p, |s| {
-    //         create_into_hashmap(&graph, &mut path_to_steps_map, &p, &s);
-    //         true
-    //     });
-    //     true
-    // });
 
     path_to_steps_map
 }

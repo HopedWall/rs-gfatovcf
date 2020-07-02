@@ -91,13 +91,13 @@ dependencies = [
  "chrono 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "gfa 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "handlegraph 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "handlegraph 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "petgraph 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "handlegraph"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "gfa 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -285,7 +285,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum clap 2.33.1 (registry+https://github.com/rust-lang/crates.io-index)" = "bdfa80d47f954d53a35a64987ca1422f495b8d6483c0fe9f7117b36c2a792129"
 "checksum fixedbitset 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "37ab347416e802de484e4d03c7316c48f1ecb56574dfd4a46a80f173ce1de04d"
 "checksum gfa 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "e59272fc676eef4704e83c3f8b3dbeee1e446c874b0b95e865d4679d374ac07b"
-"checksum handlegraph 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c8ef11a79c803aee79286d5c2b8cb6936bb7fbd77ce92df18a768ca3a9bbfa95"
+"checksum handlegraph 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "688852bda4d2bf8e565b5853b02d0e7070ceefe665573a4559f7bf0bb24235a0"
 "checksum hermit-abi 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)" = "b9586eedd4ce6b3c498bc3b4dd92fc9f11166aa908a914071953768066c67909"
 "checksum indexmap 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c398b2b113b55809ceb9ee3e753fcbac793f1956663f3c36549c1346015c2afe"
 "checksum lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
