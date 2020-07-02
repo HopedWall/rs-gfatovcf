@@ -64,7 +64,7 @@ fn create_into_hashmap(
 
     true
 }
-/// Converts paths to sequences of nodes
+/// Converts paths into sequences of nodes
 fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
     let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
 
@@ -267,6 +267,25 @@ fn print_all_paths(
 
     let mut path_list: Vec<NodeId> = Vec::new();
 
+    // let start_handle = Handle::pack(*start_node_id, false);
+    // let end_handle = Handle::pack(*end_node_id, false);
+
+    // for neighbor in handle_edges_iter(g, start_handle, Direction::Right) {
+
+    //     if !visited_node_id_set.contains(&neighbor.id()) {
+    //         visited_node_id_set.insert(neighbor.id());
+    //         path_list.push(neighbor.id());
+    //     }
+
+    //     if neighbor == end_handle {
+    //         all_path_list.push(path_list.to_vec());
+    //     } else {
+    //         for n_of_n in handle_edges_iter(g, neighbor, Direction::Right) {
+
+    //         }
+    //     }
+    // }
+
     print_all_paths_util(
         g,
         start_node_id,
@@ -373,6 +392,13 @@ fn detect_variants_per_reference(
     stuff_to_alts_map: &mut HashMap<String, HashSet<String>>,
     verbose: bool,
 ) {
+    // Create closure that will be used later
+    let get_last = |prec_node_seq_ref: &str, node_seq_ref| {
+        let mut last = prec_node_seq_ref[prec_node_seq_ref.len() - 1..].to_string();
+        last.push_str(node_seq_ref);
+        last
+    };
+
     // Check all bubbles
     for (start, end) in possible_bubbles_list {
         if verbose {
@@ -452,22 +478,18 @@ fn detect_variants_per_reference(
                         let prec_nod_seq_ref =
                             graph.sequence(Handle::pack(prec_node_id_ref, false));
 
-                        let mut last = prec_nod_seq_ref.chars().last().unwrap().to_string();
-                        //This must be concatenated!
-                        last.push_str(&String::from(node_seq_ref));
+                        let last = get_last(prec_nod_seq_ref, node_seq_ref);
 
                         let key =
                             [current_ref.to_string(), (pos_path - 1).to_string(), last].join("_");
                         stuff_to_alts_map.entry(key).or_insert(HashSet::new());
                         //TODO: find a better way to do this
-                        let mut last = prec_nod_seq_ref.chars().last().unwrap().to_string();
-                        //This must be concatenated!
-                        last.push_str(&String::from(node_seq_ref));
+                        let last = get_last(prec_nod_seq_ref, node_seq_ref);
 
                         let key =
                             [current_ref.to_string(), (pos_path - 1).to_string(), last].join("_");
 
-                        let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                        let last = prec_nod_seq_ref[prec_nod_seq_ref.len() - 1..].to_string();
                         let mut string_to_insert = last;
                         string_to_insert.push_str("_del");
                         stuff_to_alts_map
@@ -500,7 +522,7 @@ fn detect_variants_per_reference(
                         let prec_nod_seq_ref =
                             graph.sequence(Handle::pack(prec_node_id_ref, false));
 
-                        let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                        let last = prec_nod_seq_ref[prec_nod_seq_ref.len() - 1..].to_string();
                         //let key = [current_ref.to_string(), (pos_ref-1).to_string(), String::from(prec_nod_seq_ref)].join("_");
                         let key =
                             [current_ref.to_string(), (pos_ref - 1).to_string(), last].join("_");
@@ -508,11 +530,11 @@ fn detect_variants_per_reference(
                         stuff_to_alts_map.entry(key).or_insert(HashSet::new());
 
                         //Re-create key since it goes out of scope
-                        let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                        let last = prec_nod_seq_ref[prec_nod_seq_ref.len() - 1..].to_string();
                         let key =
                             [current_ref.to_string(), (pos_ref - 1).to_string(), last].join("_");
 
-                        let last = prec_nod_seq_ref.chars().last().unwrap().to_string();
+                        let last = prec_nod_seq_ref[prec_nod_seq_ref.len() - 1..].to_string();
                         let mut string_to_insert = last;
                         string_to_insert.push_str(node_seq_path);
                         string_to_insert.push_str("_ins");
