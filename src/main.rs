@@ -1,14 +1,14 @@
 //! # GFAtoVCF
 //! `GFAtoVCF` is a tool that finds variants in a Variation Graph.
 
+use handlegraph::handle::{Direction, Edge, Handle, NodeId};
+use handlegraph::handlegraph::HandleGraph;
+use handlegraph::handlegraph::{handle_edges_iter, handles_iter};
 use handlegraph::hashgraph::HashGraph;
 use handlegraph::hashgraph::PathId;
-use handlegraph::handle::{Direction, Handle, NodeId, Edge};
-use handlegraph::handlegraph::HandleGraph;
 use handlegraph::mutablehandlegraph::MutableHandleGraph;
-use handlegraph::pathgraph::PathHandleGraph;
-use handlegraph::handlegraph::{handle_edges_iter,handles_iter};
 use handlegraph::pathgraph::steps_iter;
+use handlegraph::pathgraph::PathHandleGraph;
 use std::collections::BTreeMap; //like hashmap but sorted
 use std::collections::HashMap;
 use std::fs::File;
@@ -58,7 +58,7 @@ fn create_into_hashmap(
     let path_name = g.get_path(path).unwrap().name.clone();
 
     path_to_steps
-        .entry(path_name.to_string())
+        .entry(path_name)
         .or_default()
         .push(process_step(step));
 
@@ -66,7 +66,7 @@ fn create_into_hashmap(
 }
 /// Converts paths to sequences of nodes
 fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
-    let mut path_to_steps_map : HashMap<String, Vec<String>> = HashMap::new();
+    let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
 
     for path_id in std::iter::from_fn(graph.paths_iter_impl()) {
         for step in steps_iter(graph, path_id) {
@@ -99,10 +99,10 @@ fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
         if !g_bfs.has_node(neighbor.id()) {
             let h = g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
             added_handles.push(h);
-            
+
             let edge = Edge::edge_handle(current_handle, neighbor);
             g_bfs.create_edge(&edge);
-        }       
+        }
     }
 
     for h in &added_handles {
@@ -111,7 +111,7 @@ fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
 }
 
 /// Prints an edge of a given HashGraph
-fn show_edge(g_dfs: &HashGraph, a: &Handle, b: &Handle) {
+fn show_edge(a: &Handle, b: &Handle) {
     println!("{} --> {}", a.id(), b.id());
 }
 /// Prints all nodes and edges of a given HashGraph
@@ -119,9 +119,8 @@ fn display_node_edges(g_dfs: &HashGraph, h: &Handle) {
     println!("node {}", h.id());
 
     for n in handle_edges_iter(g_dfs, *h, Direction::Right) {
-        show_edge(&g_dfs, h, &n);
+        show_edge(h, &n);
     }
-
 }
 
 /// Finds the distance of each node from a given root
@@ -146,7 +145,7 @@ fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<NodeId, 
         let current_node = Handle::pack(current_node_id, false);
         ordered_node_id_list.push(current_node_id);
 
-        for h in handle_edges_iter(g, Handle::pack(current_node_id, false), Direction::Right) {
+        for h in handle_edges_iter(g, current_node, Direction::Right) {
             let n = h.id();
             if !visited_node_id_set.contains(&n) {
                 let prev = *distances_map.get(&current_node_id).unwrap();
@@ -185,9 +184,10 @@ fn get_path_to_sequence(
             path_to_sequence_map
                 .get_mut(path_name)
                 .unwrap()
-                .push_str(graph.sequence(
-                    Handle::pack(NodeId::from(node_id_rev.parse::<u64>().unwrap()), false),
-                ));
+                .push_str(graph.sequence(Handle::pack(
+                    NodeId::from(node_id_rev.parse::<u64>().unwrap()),
+                    false,
+                )));
         }
     }
 
@@ -240,7 +240,6 @@ fn print_all_paths_util(
     if u == d {
         all_path_list.push(path_list.to_vec());
     } else {
-
         for i_node in handle_edges_iter(g, Handle::pack(*u, false), Direction::Right) {
             print_all_paths_util(
                 g,
@@ -251,7 +250,6 @@ fn print_all_paths_util(
                 all_path_list,
             );
         }
-
     }
 
     path_list.pop();
@@ -422,8 +420,7 @@ fn detect_variants_per_reference(
                         println!("REFERENCE");
                     }
 
-                    let node_seq =
-                        graph.sequence(Handle::pack(current_node_id_ref, false));
+                    let node_seq = graph.sequence(Handle::pack(current_node_id_ref, false));
                     pos_ref += node_seq.len();
                     pos_path = pos_ref;
 
@@ -447,8 +444,7 @@ fn detect_variants_per_reference(
                             println!("DEL");
                         }
 
-                        let node_seq_ref =
-                            graph.sequence(Handle::pack(current_node_id_ref, false));
+                        let node_seq_ref = graph.sequence(Handle::pack(current_node_id_ref, false));
 
                         let prec_node_id_ref = NodeId::from(
                             ref_path[current_index_step_ref + start_node_index_in_ref_path - 1],
@@ -535,8 +531,7 @@ fn detect_variants_per_reference(
 
                         continue;
                     } else {
-                        let node_seq_ref =
-                            graph.sequence(Handle::pack(current_node_id_ref, false));
+                        let node_seq_ref = graph.sequence(Handle::pack(current_node_id_ref, false));
                         let node_seq_path =
                             graph.sequence(Handle::pack(current_node_id_path, false));
 
@@ -792,8 +787,8 @@ fn write_to_file(path: &PathBuf, variants: &[Variant]) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handlegraph::hashgraph::HashGraph;
     use handlegraph::handlegraph::HandleGraph;
+    use handlegraph::hashgraph::HashGraph;
 
     //Used in other tests
     fn read_test_gfa() -> HashGraph {
