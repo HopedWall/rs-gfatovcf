@@ -23,6 +23,9 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
+use std::thread;
+use std::sync::{Arc, Mutex};
+
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
 struct Variant {
@@ -95,14 +98,34 @@ fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
         g_bfs.create_handle(g.sequence(current_handle), *node_id);
     }
 
-    for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
-        if !g_bfs.has_node(neighbor.id()) {
-            let h = g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
-            added_handles.push(h);
+    //Create threads, one for each neighbor
+    let mut children = vec![];
+    //Make g_bfs atomic
+    let counter = Arc::new(Mutex::new(g_bfs));
 
-            let edge = Edge::edge_handle(current_handle, neighbor);
-            g_bfs.create_edge(&edge);
-        }
+    for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
+       
+            //Spawn a new thread
+            children.push(thread::spawn(move || {
+
+                // Take g_bfs
+                let mut g_bfs = counter.lock().unwrap();
+
+                // Check if node is already contained in g_bfs
+                if !g_bfs.has_node(neighbor.id()) {
+                    let h = g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
+                    added_handles.push(h);
+    
+                    let edge = Edge::edge_handle(current_handle, neighbor);
+                    g_bfs.create_edge(&edge);
+                }
+
+            }));
+    }
+
+    // Wait for all threads to finish
+    for child in children {
+        child.join();
     }
 
     for h in &added_handles {
