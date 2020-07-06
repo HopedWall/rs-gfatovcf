@@ -53,7 +53,7 @@ fn process_step(h: &Handle) -> String {
 }
 /// Returns all paths as a hashmap, having the path_name as key and a list of steps as values
 fn create_into_hashmap(
-    g: &HashGraph,
+    g: Arc<HashGraph>,
     path_to_steps: &mut HashMap<String, Vec<String>>,
     path: &PathId,
     step: &Handle,
@@ -68,60 +68,73 @@ fn create_into_hashmap(
     true
 }
 /// Converts paths into sequences of nodes
-fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
+fn paths_to_steps(graph: Arc<HashGraph>) -> HashMap<String, Vec<String>> {
     let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
 
-    for path_id in std::iter::from_fn(graph.paths_iter_impl()) {
-        for step in steps_iter(graph, path_id) {
-            let handle = graph.handle_of_step(&step).unwrap();
-            create_into_hashmap(graph, &mut path_to_steps_map, path_id, &handle);
+    let cloned = graph.clone();
+    for path_id in std::iter::from_fn(cloned.paths_iter_impl()) {
+
+        let mut children = vec![];
+
+        steps_iter(graph.as_ref(), path_id)
+                    .map(|step| {
+                        let handle = graph.handle_of_step(&step).unwrap();
+                        children.push(thread::spawn(move || 
+                            create_into_hashmap(cloned, &mut path_to_steps_map, path_id, &handle)));
+                    });
+
+        //Wait for threads to end
+        for child in children {
+            child.join();
         }
+
     }
 
     path_to_steps_map
 }
 
 /// Wrapper function for bfs_new
-fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
+fn bfs(g: Arc<HashGraph>, node_id: &NodeId) -> HashGraph {
     let mut g_bfs = HashGraph::new();
-    bfs_support(g, &g_bfs, node_id);
+    //let g_bfs_arc = Arc::new(Mutex::new(g_bfs));
+    bfs_support(g, g_bfs, node_id);
     g_bfs
 }
 
 /// Computes the bfs of a given variation graph
-fn bfs_support(g: &HashGraph, g_bfs: &HashGraph, node_id: &NodeId) {
-    let current_handle = Handle::pack(*node_id, false);
-    let mut added_handles: Vec<Handle> = vec![];
+fn bfs_support(g: Arc<HashGraph>, g_bfs: HashGraph, node_id: &NodeId) {
+    // let current_handle = Handle::pack(*node_id, false);
+    // let mut added_handles: Vec<Handle> = vec![];
 
-    if !g_bfs.has_node(*node_id) {
-        g_bfs.create_handle(g.sequence(current_handle), *node_id);
-    }
+    // if !g_bfs.has_node(*node_id) {
+    //     g_bfs.create_handle(g.sequence(current_handle), *node_id);
+    // }
 
-    //Arc provides memory management for concurrency
-    //Mutex provides concurrent mut access
+    // //Arc provides memory management for concurrency
+    // //Mutex provides concurrent mut access
 
-    let arc_g = Arc::new(g);
-    let arc_g_bfs = Arc::new(Mutex::new(g_bfs));
+    // let arc_g = Arc::new(g);
+    // let arc_g_bfs = Arc::new(Mutex::new(g_bfs));
     
-    //Create threads, one for each neighbor
-    let mut children = vec![];
+    // //Create threads, one for each neighbor
+    // let mut children = vec![];
 
-    for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
-        let cl = arc_g_bfs.clone();
-        let cl1 = arc_g.clone();
+    // for neighbor in handle_edges_iter(g.as_ref(), current_handle, Direction::Right) {
+    //     let cl = arc_g_bfs.clone();
+    //     let cl1 = arc_g.clone();
 
-            children.push(thread::spawn(move || 
-                bfs_parallel_step(cl1, cl, &neighbor, &current_handle)));
-    }
+    //         // children.push(thread::spawn(move || 
+    //         //     bfs_parallel_step(cl1, cl, &neighbor, &current_handle)));
+    // }
 
-    // Wait for all threads to finish
-    for child in children {
-        child.join();
-    }
+    // // Wait for all threads to finish
+    // for child in children {
+    //     child.join();
+    // }
 
-    for h in &added_handles {
-        bfs_support(g, g_bfs, &h.id());
-    }
+    // for h in &added_handles {
+    //     bfs_support(g, g_bfs, &h.id());
+    // }
 }
 
 fn bfs_parallel_step(g : Arc<HashGraph>, g_bfs_lock : Arc<Mutex<&HashGraph>>, neighbor : &Handle, current_handle : &Handle) {
@@ -722,78 +735,80 @@ fn main() {
         let graph = HashGraph::from_gfa(&gfa);
 
         // Obtains, for each path, a list of all its steps (its nodes)
-        let mut path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(&graph);
+        let mut path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(Arc::new(graph));
 
-        // Obtains, for each node, its position in each path where the node is in
-        let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
-            get_node_positions_in_paths(&graph, &mut path_to_steps_map);
+        println!("Path to steps map: {:#?}",path_to_steps_map)
 
-        if verbose {
-            for node_id in node_id_to_path_and_pos_map.keys() {
-                let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id);
-                println!("Node_id : {}", node_id);
+        // // Obtains, for each node, its position in each path where the node is in
+        // let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
+        //     get_node_positions_in_paths(&graph, &mut path_to_steps_map);
 
-                for (path, pos) in path_and_pos_map.unwrap() {
-                    println!("Path: {}  -- Pos: {}", path, pos);
-                }
-            }
-        }
+        // if verbose {
+        //     for node_id in node_id_to_path_and_pos_map.keys() {
+        //         let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id);
+        //         println!("Node_id : {}", node_id);
 
-        //Obtains the tree representing the bfs
-        //let graph_arc = Arc::new(graph);
-        let g_bfs: HashGraph = bfs(&graph, &NodeId::from(1));
+        //         for (path, pos) in path_and_pos_map.unwrap() {
+        //             println!("Path: {}  -- Pos: {}", path, pos);
+        //         }
+        //     }
+        // }
 
-        if verbose {
-            for h in handles_iter(&g_bfs) {
-                display_node_edges(&g_bfs, &h);
-            }
-        }
+        // //Obtains the tree representing the bfs
+        // let graph_arc = Arc::new(graph);
+        // let g_bfs: HashGraph = bfs(graph_arc, &NodeId::from(1));
 
-        // Obtains, for each level of the tree, how many nodes are there
-        let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
+        // if verbose {
+        //     for h in handles_iter(&g_bfs) {
+        //         display_node_edges(&g_bfs, &h);
+        //     }
+        // }
 
-        if verbose {
-            println!("\nNode --> Distance from root");
-            for (node_id, distance) in distances_map.iter() {
-                println!("{} - distance from root: {}", node_id, distance);
-            }
-        }
+        // // Obtains, for each level of the tree, how many nodes are there
+        // let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
 
-        //Obtains a map where, for each distance from root, the number of nodes
-        //at that distance are present
-        let dist_to_num_nodes: BTreeMap<u64, usize> = get_dist_to_num_nodes(&distances_map);
+        // if verbose {
+        //     println!("\nNode --> Distance from root");
+        //     for (node_id, distance) in distances_map.iter() {
+        //         println!("{} - distance from root: {}", node_id, distance);
+        //     }
+        // }
 
-        if verbose {
-            println!("\nDistance from root --> Num. nodes");
-            for (k, v) in dist_to_num_nodes.iter() {
-                println!("{} --> {}", k, v);
-            }
-        }
+        // //Obtains a map where, for each distance from root, the number of nodes
+        // //at that distance are present
+        // let dist_to_num_nodes: BTreeMap<u64, usize> = get_dist_to_num_nodes(&distances_map);
 
-        let possible_bubbles_list: Vec<(NodeId, NodeId)> =
-            detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
+        // if verbose {
+        //     println!("\nDistance from root --> Num. nodes");
+        //     for (k, v) in dist_to_num_nodes.iter() {
+        //         println!("{} --> {}", k, v);
+        //     }
+        // }
 
-        if verbose {
-            println!("\nBubbles");
-            println!("Detected bubbles {:#?}", possible_bubbles_list);
-            println!("\n------------------");
+        // let possible_bubbles_list: Vec<(NodeId, NodeId)> =
+        //     detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
-            //Obtains, for each path, a string representing all the bases of the path (not actually used)
-            let path_to_sequence_map: HashMap<String, String> =
-                get_path_to_sequence(&graph, &path_to_steps_map);
-            println!("Path to sequence: {:?}", path_to_sequence_map);
-        }
+        // if verbose {
+        //     println!("\nBubbles");
+        //     println!("Detected bubbles {:#?}", possible_bubbles_list);
+        //     println!("\n------------------");
 
-        let vcf_list = detect_all_variants(
-            &path_to_steps_map,
-            &possible_bubbles_list,
-            &graph,
-            &node_id_to_path_and_pos_map,
-            verbose,
-        );
+        //     //Obtains, for each path, a string representing all the bases of the path (not actually used)
+        //     let path_to_sequence_map: HashMap<String, String> =
+        //         get_path_to_sequence(&graph, &path_to_steps_map);
+        //     println!("Path to sequence: {:?}", path_to_sequence_map);
+        // }
 
-        //Write variants to file
-        write_to_file(&PathBuf::from(out_path_file), &vcf_list).unwrap();
+        // let vcf_list = detect_all_variants(
+        //     &path_to_steps_map,
+        //     &possible_bubbles_list,
+        //     &graph,
+        //     &node_id_to_path_and_pos_map,
+        //     verbose,
+        // );
+
+        // //Write variants to file
+        // write_to_file(&PathBuf::from(out_path_file), &vcf_list).unwrap();
     } else {
         panic!("Couldn't parse gfa file!");
     }
