@@ -83,17 +83,17 @@ fn print_all_steps(graph: Arc<HashGraph>, path_id : &PathId, path_to_steps_map :
 }
 
 /// Converts paths into sequences of nodes
-fn paths_to_steps(graph: Arc<HashGraph>) -> HashMap<String, Vec<String>> {
+fn paths_to_steps(graph : Arc<HashGraph>) -> HashMap<String, Vec<String>> {
     let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
     let ptsm_arc = Arc::new(Mutex::new(path_to_steps_map));
+    //let cloned = graph.clone();
     
     let mut children : Vec<_> = vec![];
     paths_iter(graph.as_ref()).for_each(|path_id| {
-        let clone = ptsm_arc.clone();
-        let clone1 = graph.clone();
-        children.push(thread::spawn(move || {
-            print_all_steps(clone1, path_id, clone)
-        }));
+       
+        children.push(thread::spawn(move ||
+            print_all_steps(graph.clone(), path_id, ptsm_arc.clone())
+        ));
 
     });
 
@@ -756,11 +756,13 @@ fn main() {
 
     if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path_file)) {
         let graph = HashGraph::from_gfa(&gfa);
+        let graph_arc = Arc::new(graph);
 
-        // Obtains, for each path, a list of all its steps (its nodes)
-        let mut path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(Arc::new(graph));
+        //Obtains, for each path, a list of all its steps (its nodes)
+        let cloned = graph_arc.clone();
+        let path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(cloned);
 
-        println!("Path to steps map: {:#?}",path_to_steps_map);
+        //println!("Path to steps map: {:#?}",path_to_steps_map);
 
         // // Obtains, for each node, its position in each path where the node is in
         // let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
@@ -782,11 +784,10 @@ fn main() {
         //let g_bfs: HashGraph = bfs(graph_arc, &NodeId::from(1));
         
 
-        let arc = Arc::new(graph);
         if verbose {
-            handles_iter(arc.as_ref())
+            handles_iter(graph_arc.as_ref())
                 .for_each(|h| {
-                    let cloned = Arc::clone(&arc);
+                    let cloned = Arc::clone(&graph_arc);
                     display_node_edges(cloned, Arc::new(h));
                 });    
         }
