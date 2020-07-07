@@ -4,6 +4,7 @@
 use handlegraph::handle::{Direction, Edge, Handle, NodeId};
 use handlegraph::handlegraph::HandleGraph;
 use handlegraph::handlegraph::{handle_edges_iter, handles_iter};
+use handlegraph::pathgraph::{paths_iter};
 use handlegraph::hashgraph::HashGraph;
 use handlegraph::hashgraph::PathId;
 use handlegraph::mutablehandlegraph::MutableHandleGraph;
@@ -25,6 +26,7 @@ use std::collections::VecDeque;
 
 use std::thread;
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
@@ -51,47 +53,56 @@ fn process_step(h: &Handle) -> String {
 
     format!("{}{}", h.id().to_string(), orient)
 }
-/// Returns all paths as a hashmap, having the path_name as key and a list of steps as values
+/// Add a given step to a given path
 fn create_into_hashmap(
     g: &Arc<HashGraph>,
-    path_to_steps: &mut HashMap<String, Vec<String>>,
+    path_to_steps: &Arc<Mutex<HashMap<String, Vec<String>>>>,
     path: &PathId,
     step: &Handle,
 ) -> bool {
     let path_name = g.get_path(path).unwrap().name.clone();
 
     path_to_steps
+        .lock()
+        .unwrap()
         .entry(path_name)
         .or_default()
         .push(process_step(step));
 
     true
 }
+
+/// Returns all steps of a given path
+fn print_all_steps(graph: Arc<HashGraph>, path_id : &PathId, path_to_steps_map : Arc<Mutex<HashMap<String, Vec<String>>>>) {
+    //let mut children : Vec<_> = vec![];
+    steps_iter(graph.as_ref(), path_id)
+            .for_each(|step| {
+                let handle = graph.handle_of_step(&step).unwrap();
+                create_into_hashmap(&graph,&path_to_steps_map,path_id, &handle);
+            });
+}
+
 /// Converts paths into sequences of nodes
-// fn paths_to_steps(graph: Arc<HashGraph>) -> HashMap<String, Vec<String>> {
-//     let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
+fn paths_to_steps(graph: Arc<HashGraph>) -> HashMap<String, Vec<String>> {
+    let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
+    let ptsm_arc = Arc::new(Mutex::new(path_to_steps_map));
     
-//     for path_id in std::iter::from_fn(graph.paths_iter_impl()) {
+    let mut children : Vec<_> = vec![];
+    paths_iter(graph.as_ref()).for_each(|path_id| {
+        let clone = ptsm_arc.clone();
+        let clone1 = graph.clone();
+        children.push(thread::spawn(move || {
+            print_all_steps(clone1, path_id, clone)
+        }));
 
-//         let mut children = vec![];
-//         let cloned = graph.clone();
+    });
 
-//         steps_iter(graph.as_ref(), path_id)
-//                     .map(|step| {
-//                         let handle = graph.handle_of_step(&step).unwrap();
-//                         children.push(thread::spawn(move || 
-//                             create_into_hashmap(&cloned, &mut path_to_steps_map, path_id, &handle)));
-//                     });
+    for child in children {
+        child.join().unwrap();
+    }
 
-//         //Wait for threads to end
-//         for child in children {
-//             child.join();
-//         }
-
-//     }
-
-//     path_to_steps_map
-// }
+    path_to_steps_map
+}
 
 /// Wrapper function for bfs_new
 // fn bfs(g: Arc<HashGraph>, node_id: &NodeId) -> HashGraph {
@@ -747,9 +758,9 @@ fn main() {
         let graph = HashGraph::from_gfa(&gfa);
 
         // Obtains, for each path, a list of all its steps (its nodes)
-        //let mut path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(Arc::new(graph));
+        let mut path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(Arc::new(graph));
 
-        //println!("Path to steps map: {:#?}",path_to_steps_map);
+        println!("Path to steps map: {:#?}",path_to_steps_map);
 
         // // Obtains, for each node, its position in each path where the node is in
         // let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
