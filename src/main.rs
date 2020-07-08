@@ -76,7 +76,7 @@ fn create_into_hashmap(
 /// Returns all steps of a given path
 fn print_all_steps(graph: &HashGraph, path_id : &PathId, path_to_steps_map : Arc<Mutex<HashMap<String, Vec<String>>>>) {
     //let mut children : Vec<_> = vec![];
-    graph.paths.get(path_id).unwrap().nodes.par_iter()
+    graph.paths.get(path_id).unwrap().nodes.iter()
         .for_each(|handle| {
             // Why is .clone() necessary?
             create_into_hashmap(graph,path_to_steps_map.clone(),path_id, &handle);
@@ -89,7 +89,7 @@ fn paths_to_steps(graph : &HashGraph) -> Arc<Mutex<HashMap<String, Vec<String>>>
     let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
     let arc_pts = Arc::new(Mutex::new(path_to_steps_map));
 
-    graph.paths.into_par_iter()
+    graph.paths.par_iter()
                     .for_each(|(path_id, _)| {
                         print_all_steps(&graph, &path_id, arc_pts.clone())
                     });
