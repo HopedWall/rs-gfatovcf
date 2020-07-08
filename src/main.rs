@@ -27,6 +27,7 @@ use std::collections::VecDeque;
 use std::thread;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
+use rayon::prelude::*;
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
@@ -55,8 +56,8 @@ fn process_step(h: &Handle) -> String {
 }
 /// Add a given step to a given path
 fn create_into_hashmap(
-    g: &Arc<HashGraph>,
-    path_to_steps: &Arc<Mutex<HashMap<String, Vec<String>>>>,
+    g: &HashGraph,
+    path_to_steps: Arc<Mutex<HashMap<String, Vec<String>>>>,
     path: &PathId,
     step: &Handle,
 ) -> bool {
@@ -73,35 +74,28 @@ fn create_into_hashmap(
 }
 
 /// Returns all steps of a given path
-fn print_all_steps(graph: Arc<HashGraph>, path_id : &PathId, path_to_steps_map : Arc<Mutex<HashMap<String, Vec<String>>>>) {
+fn print_all_steps(graph: &HashGraph, path_id : &PathId, path_to_steps_map : Arc<Mutex<HashMap<String, Vec<String>>>>) {
     //let mut children : Vec<_> = vec![];
-    steps_iter(graph.as_ref(), path_id)
-            .for_each(|step| {
-                let handle = graph.handle_of_step(&step).unwrap();
-                create_into_hashmap(&graph,&path_to_steps_map,path_id, &handle);
-            });
+    graph.paths.get(path_id).unwrap().nodes.par_iter()
+        .for_each(|handle| {
+            // Why is .clone() necessary?
+            create_into_hashmap(graph,path_to_steps_map.clone(),path_id, &handle);
+        })
 }
 
 /// Converts paths into sequences of nodes
-fn paths_to_steps(graph : Arc<HashGraph>) -> HashMap<String, Vec<String>> {
-    let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
-    let ptsm_arc = Arc::new(Mutex::new(path_to_steps_map));
-    //let cloned = graph.clone();
+fn paths_to_steps(graph : &HashGraph) -> Arc<Mutex<HashMap<String, Vec<String>>>> {
     
-    let mut children : Vec<_> = vec![];
-    paths_iter(graph.as_ref()).for_each(|path_id| {
-       
-        children.push(thread::spawn(move ||
-            print_all_steps(graph.clone(), path_id, ptsm_arc.clone())
-        ));
+    let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
+    let arc_pts = Arc::new(Mutex::new(path_to_steps_map));
 
-    });
+    graph.paths.into_par_iter()
+                    .for_each(|(path_id, _)| {
+                        print_all_steps(&graph, &path_id, arc_pts.clone())
+                    });
 
-    for child in children {
-        child.join().unwrap();
-    }
-
-    path_to_steps_map
+    arc_pts
+    //path_to_steps_map
 }
 
 /// Wrapper function for bfs_new
@@ -756,13 +750,11 @@ fn main() {
 
     if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path_file)) {
         let graph = HashGraph::from_gfa(&gfa);
-        let graph_arc = Arc::new(graph);
 
         //Obtains, for each path, a list of all its steps (its nodes)
-        let cloned = graph_arc.clone();
-        let path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(cloned);
-
-        //println!("Path to steps map: {:#?}",path_to_steps_map);
+        //let path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(&graph);
+        let path_to_steps_map = paths_to_steps(&graph);
+        println!("Path to steps map: {:#?}",path_to_steps_map);
 
         // // Obtains, for each node, its position in each path where the node is in
         // let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
@@ -784,13 +776,13 @@ fn main() {
         //let g_bfs: HashGraph = bfs(graph_arc, &NodeId::from(1));
         
 
-        if verbose {
-            handles_iter(graph_arc.as_ref())
-                .for_each(|h| {
-                    let cloned = Arc::clone(&graph_arc);
-                    display_node_edges(cloned, Arc::new(h));
-                });    
-        }
+        // if verbose {
+        //     handles_iter(graph_arc.as_ref())
+        //         .for_each(|h| {
+        //             let cloned = Arc::clone(&graph_arc);
+        //             display_node_edges(cloned, Arc::new(h));
+        //         });    
+        // }
 
         // // Obtains, for each level of the tree, how many nodes are there
         // let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
