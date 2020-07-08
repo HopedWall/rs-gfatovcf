@@ -84,7 +84,7 @@ fn print_all_steps(graph: &HashGraph, path_id : &PathId, path_to_steps_map : Arc
 }
 
 /// Converts paths into sequences of nodes
-fn paths_to_steps(graph : &HashGraph) -> Arc<Mutex<HashMap<String, Vec<String>>>> {
+fn paths_to_steps(graph : &HashGraph) -> HashMap<String, Vec<String>> {
     
     let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
     let arc_pts = Arc::new(Mutex::new(path_to_steps_map));
@@ -94,8 +94,8 @@ fn paths_to_steps(graph : &HashGraph) -> Arc<Mutex<HashMap<String, Vec<String>>>
                         print_all_steps(&graph, &path_id, arc_pts.clone())
                     });
 
-    arc_pts
-    //path_to_steps_map
+    let lock = Arc::try_unwrap(arc_pts).expect("Lock still has multiple owners");
+    lock.into_inner().expect("Mutex cannot be locked")
 }
 
 /// Wrapper function for bfs_new
@@ -674,35 +674,71 @@ fn get_node_positions_in_paths(
     path_to_steps_map: &mut HashMap<String, Vec<String>>,
 ) -> BTreeMap<NodeId, HashMap<String, usize>> {
     let mut node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
+    let mut node_id_to_path_and_pos_map : Arc<_> = Arc::from(Mutex::from(node_id_to_path_and_pos_map));
 
-    for (path_name, steps_list) in path_to_steps_map {
+    path_to_steps_map.par_iter_mut()
+    .for_each(|(path_name, steps_list)| {
         let mut pos = 0;
 
-        for node_id_is_rev in steps_list {
-            // Get orientation
-            let _is_rev = node_id_is_rev.pop().unwrap();
-            // Get the id of the node string -> NodeId
-            let node_id: NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
+        steps_list.iter_mut()
+            .for_each(|node_id_is_rev|{
+                // Get orientation
+                let _is_rev = node_id_is_rev.pop().unwrap();
+                // Get the id of the node string -> NodeId
+                let node_id: NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
 
-            let node_handle = Handle::pack(node_id, false);
-            let seq = graph.sequence(node_handle);
+                let node_handle = Handle::pack(node_id, false);
+                let seq = graph.sequence(node_handle);
 
-            node_id_to_path_and_pos_map
-                .entry(node_id)
-                .or_insert(HashMap::new());
+                let mut n = node_id_to_path_and_pos_map.lock().unwrap();
+                n.entry(node_id).or_insert(HashMap::new());
 
-            if !node_id_to_path_and_pos_map[&node_id].contains_key(path_name) {
-                node_id_to_path_and_pos_map
-                    .get_mut(&node_id)
-                    .unwrap()
-                    .insert(String::from(path_name), pos);
-            }
+                if !n[&node_id].contains_key(path_name) {
+                        n
+                         .get_mut(&node_id)
+                         .unwrap()
+                         .insert(String::from(path_name), pos);
+                }
 
-            pos += seq.len();
-        }
-    }
+                pos += seq.len();
+            
+            });
+        
+        
 
-    node_id_to_path_and_pos_map
+    });
+
+    // for (path_name, steps_list) in path_to_steps_map {
+    //     let mut pos = 0;
+
+    //     for node_id_is_rev in steps_list {
+    //         // Get orientation
+    //         let _is_rev = node_id_is_rev.pop().unwrap();
+    //         // Get the id of the node string -> NodeId
+    //         let node_id: NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
+
+    //         let node_handle = Handle::pack(node_id, false);
+    //         let seq = graph.sequence(node_handle);
+
+    //         node_id_to_path_and_pos_map
+    //             .entry(node_id)
+    //             .or_insert(HashMap::new());
+
+    //         if !node_id_to_path_and_pos_map[&node_id].contains_key(path_name) {
+    //             node_id_to_path_and_pos_map
+    //                 .get_mut(&node_id)
+    //                 .unwrap()
+    //                 .insert(String::from(path_name), pos);
+    //         }
+
+    //         pos += seq.len();
+    //     }
+    // }
+
+    let lock = Arc::try_unwrap(node_id_to_path_and_pos_map).expect("Lock still has multiple owners");
+    lock.into_inner().expect("Mutex cannot be locked")
+
+    //node_id_to_path_and_pos_map
 }
 
 /// The function that runs the script
@@ -753,23 +789,23 @@ fn main() {
 
         //Obtains, for each path, a list of all its steps (its nodes)
         //let path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(&graph);
-        let path_to_steps_map = paths_to_steps(&graph);
+        let mut path_to_steps_map = paths_to_steps(&graph);
         println!("Path to steps map: {:#?}",path_to_steps_map);
 
-        // // Obtains, for each node, its position in each path where the node is in
-        // let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
-        //     get_node_positions_in_paths(&graph, &mut path_to_steps_map);
+        // Obtains, for each node, its position in each path where the node is in
+        let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
+             get_node_positions_in_paths(&graph, &mut path_to_steps_map);
 
-        // if verbose {
-        //     for node_id in node_id_to_path_and_pos_map.keys() {
-        //         let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id);
-        //         println!("Node_id : {}", node_id);
+        if verbose {
+            for node_id in node_id_to_path_and_pos_map.keys() {
+                let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id);
+                println!("Node_id : {}", node_id);
 
-        //         for (path, pos) in path_and_pos_map.unwrap() {
-        //             println!("Path: {}  -- Pos: {}", path, pos);
-        //         }
-        //     }
-        // }
+                for (path, pos) in path_and_pos_map.unwrap() {
+                    println!("Path: {}  -- Pos: {}", path, pos);
+                }
+            }
+        }
 
         //Obtains the tree representing the bfs
         //let graph_arc = Arc::new(graph);
