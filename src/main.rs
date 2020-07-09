@@ -98,64 +98,66 @@ fn paths_to_steps(graph : &HashGraph) -> HashMap<String, Vec<String>> {
     lock.into_inner().expect("Mutex cannot be locked")
 }
 
-/// Wrapper function for bfs_new
-// fn bfs(g: Arc<HashGraph>, node_id: &NodeId) -> HashGraph {
-//     let mut g_bfs = HashGraph::new();
-//     //let g_bfs_arc = Arc::new(Mutex::new(g_bfs));
-//     bfs_support(g, g_bfs, node_id);
-//     g_bfs
-// }
-
-/// Computes the bfs of a given variation graph
-fn bfs_support(g: Arc<HashGraph>, g_bfs: HashGraph, node_id: &NodeId) {
-    // let current_handle = Handle::pack(*node_id, false);
-    // let mut added_handles: Vec<Handle> = vec![];
-
-    // if !g_bfs.has_node(*node_id) {
-    //     g_bfs.create_handle(g.sequence(current_handle), *node_id);
-    // }
-
-    // //Arc provides memory management for concurrency
-    // //Mutex provides concurrent mut access
-
-    // let arc_g = Arc::new(g);
-    // let arc_g_bfs = Arc::new(Mutex::new(g_bfs));
+// Wrapper function for bfs_new
+fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
+    let mut g_bfs = HashGraph::new();
     
-    // //Create threads, one for each neighbor
-    // let mut children = vec![];
+    let arc_g_bfs = Arc::new(Mutex::new(g_bfs));
+    let arc_g = Arc::new(*g);
+    
+    bfs_support(arc_g, arc_g_bfs, node_id);
 
-    // for neighbor in handle_edges_iter(g.as_ref(), current_handle, Direction::Right) {
-    //     let cl = arc_g_bfs.clone();
-    //     let cl1 = arc_g.clone();
-
-    //         // children.push(thread::spawn(move || 
-    //         //     bfs_parallel_step(cl1, cl, &neighbor, &current_handle)));
-    // }
-
-    // // Wait for all threads to finish
-    // for child in children {
-    //     child.join();
-    // }
-
-    // for h in &added_handles {
-    //     bfs_support(g, g_bfs, &h.id());
-    // }
+    let lock = Arc::try_unwrap(arc_g_bfs).expect("Lock still has multiple owners");
+    lock.into_inner().expect("Mutex cannot be locked")
 }
 
-fn bfs_parallel_step(g : Arc<HashGraph>, g_bfs_lock : Arc<Mutex<&HashGraph>>, neighbor : &Handle, current_handle : &Handle) {
-    
-    // //makes sure only 1 thread has the lock
-    // let g_bfs = g_bfs_lock.lock().unwrap();
-    
-    // if !g_bfs.has_node(neighbor.id()) {
-    //     let h = g_bfs.create_handle(g.sequence(*neighbor), neighbor.id());
-        
-    //     //maybe better to return the edge to avoid deadlocks?
-    //     //added_handles.push(h);
+/// Computes the bfs of a given variation graph
+fn bfs_support(g: Arc<HashGraph>, g_bfs_lock: Arc<Mutex<HashGraph>>, node_id: &NodeId) {
+    let current_handle = Handle::pack(*node_id, false);
+    let mut added_handles: Vec<Handle> = vec![];
+    let g_bfs = g_bfs_lock.lock().unwrap();
 
-    //     let edge = Edge::edge_handle(*current_handle, *neighbor);
-    //     g_bfs.create_edge(&edge);
-    // }
+    if !g_bfs.has_node(*node_id) {
+        g_bfs.create_handle(g.sequence(current_handle), *node_id);
+    }
+
+    // Get neighbors for each node
+    let neighbors : Vec<_> = handle_edges_iter(g.as_ref(), current_handle, Direction::Right).collect();
+
+    neighbors.par_iter()
+             .for_each(|neighbor| {
+                let arc_g = Arc::clone(&g);
+                let arc_g_bfs = Arc::clone(&g_bfs_lock);
+                let added_handles_lock = Arc::new(Mutex::new(added_handles));
+                bfs_parallel_step(arc_g, arc_g_bfs, &neighbor, &current_handle, added_handles_lock);
+             });
+
+    //Repeat in parallel for all added handles
+    added_handles.par_iter()
+                .for_each(|handle|{
+                    bfs_support(g, g_bfs, &handle.id());
+                });
+        
+}
+
+fn bfs_parallel_step(g : Arc<HashGraph>, 
+                    g_bfs_lock : Arc<Mutex<HashGraph>>, 
+                    neighbor : &Handle, 
+                    current_handle : &Handle,
+                    added_handles_lock : Arc<Mutex<Vec<Handle>>>) {
+    
+    let g_bfs = g_bfs_lock.lock().unwrap();
+    
+    if !g_bfs.has_node(neighbor.id()) {
+        let h = g_bfs.create_handle(g.sequence(*neighbor), neighbor.id());
+        
+        let edge = Edge::edge_handle(*current_handle, *neighbor);
+        g_bfs.create_edge(&edge);
+        
+        //maybe better to return the edge to avoid deadlocks?
+        let added_handles = added_handles_lock.lock().unwrap();
+        added_handles.push(h);
+    }
 }
 
 /// Prints an edge of a given HashGraph
@@ -809,7 +811,7 @@ fn main() {
 
         //Obtains the tree representing the bfs
         //let graph_arc = Arc::new(graph);
-        //let g_bfs: HashGraph = bfs(graph_arc, &NodeId::from(1));
+        let g_bfs: HashGraph = bfs(&graph, &NodeId::from(1));
         
 
         // if verbose {
