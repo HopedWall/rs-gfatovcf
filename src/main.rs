@@ -57,15 +57,13 @@ fn process_step(h: &Handle) -> String {
 /// Add a given step to a given path
 fn create_into_hashmap(
     g: &HashGraph,
-    path_to_steps: Arc<Mutex<HashMap<String, Vec<String>>>>,
+    path_to_steps: &mut HashMap<String, Vec<String>>,
     path: &PathId,
     step: &Handle,
 ) -> bool {
     let path_name = g.get_path(path).unwrap().name.clone();
 
     path_to_steps
-        .lock()
-        .unwrap()
         .entry(path_name)
         .or_default()
         .push(process_step(step));
@@ -74,12 +72,11 @@ fn create_into_hashmap(
 }
 
 /// Returns all steps of a given path
-fn print_all_steps(graph: &HashGraph, path_id : &PathId, path_to_steps_map : Arc<Mutex<HashMap<String, Vec<String>>>>) {
+fn print_all_steps(graph: &HashGraph, path_id : &PathId, path_to_steps_map : &mut HashMap<String, Vec<String>>) {
     //let mut children : Vec<_> = vec![];
     graph.paths.get(path_id).unwrap().nodes.iter()
         .for_each(|handle| {
-            // Why is .clone() necessary?
-            create_into_hashmap(graph,path_to_steps_map.clone(),path_id, &handle);
+            create_into_hashmap(graph,path_to_steps_map,path_id, &handle);
         })
 }
 
@@ -87,49 +84,38 @@ fn print_all_steps(graph: &HashGraph, path_id : &PathId, path_to_steps_map : Arc
 fn paths_to_steps(graph : &HashGraph) -> HashMap<String, Vec<String>> {
     
     let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
-    let arc_pts = Arc::new(Mutex::new(path_to_steps_map));
 
     graph.paths.par_iter()
                     .for_each(|(path_id, _)| {
-                        print_all_steps(&graph, &path_id, arc_pts.clone())
+                        path_to_steps_map.par_extend(
+                            print_all_steps(graph, path_id, &path_to_steps_map));
                     });
 
-    let lock = Arc::try_unwrap(arc_pts).expect("Lock still has multiple owners");
-    lock.into_inner().expect("Mutex cannot be locked")
+    path_to_steps_map
 }
 
 // Wrapper function for bfs_new
 fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     let mut g_bfs = HashGraph::new();
-    
-    let arc_g_bfs = Arc::new(Mutex::new(g_bfs));
-    let arc_g = Arc::new(*g);
-    
-    bfs_support(arc_g, arc_g_bfs, node_id);
-
-    let lock = Arc::try_unwrap(arc_g_bfs).expect("Lock still has multiple owners");
-    lock.into_inner().expect("Mutex cannot be locked")
+    bfs_support(g, &mut g_bfs, node_id);
+    g_bfs
 }
 
 /// Computes the bfs of a given variation graph
-fn bfs_support(g: Arc<HashGraph>, g_bfs_lock: Arc<Mutex<HashGraph>>, node_id: &NodeId) {
+fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
     let current_handle = Handle::pack(*node_id, false);
     let mut added_handles: Vec<Handle> = vec![];
-    let g_bfs = g_bfs_lock.lock().unwrap();
 
     if !g_bfs.has_node(*node_id) {
         g_bfs.create_handle(g.sequence(current_handle), *node_id);
     }
 
     // Get neighbors for each node
-    let neighbors : Vec<_> = handle_edges_iter(g.as_ref(), current_handle, Direction::Right).collect();
+    let neighbors : Vec<_> = handle_edges_iter(g, current_handle, Direction::Right).collect();
 
     neighbors.par_iter()
              .for_each(|neighbor| {
-                let arc_g = Arc::clone(&g);
-                let arc_g_bfs = Arc::clone(&g_bfs_lock);
-                let added_handles_lock = Arc::new(Mutex::new(added_handles));
-                bfs_parallel_step(arc_g, arc_g_bfs, &neighbor, &current_handle, added_handles_lock);
+                bfs_parallel_step(g, g_bfs, &neighbor, &current_handle, &mut added_handles);
              });
 
     //Repeat in parallel for all added handles
@@ -140,13 +126,11 @@ fn bfs_support(g: Arc<HashGraph>, g_bfs_lock: Arc<Mutex<HashGraph>>, node_id: &N
         
 }
 
-fn bfs_parallel_step(g : Arc<HashGraph>, 
-                    g_bfs_lock : Arc<Mutex<HashGraph>>, 
+fn bfs_parallel_step(g : &HashGraph, 
+                    g_bfs : &mut HashGraph, 
                     neighbor : &Handle, 
                     current_handle : &Handle,
-                    added_handles_lock : Arc<Mutex<Vec<Handle>>>) {
-    
-    let g_bfs = g_bfs_lock.lock().unwrap();
+                    added_handles : &mut Vec<Handle>) {
     
     if !g_bfs.has_node(neighbor.id()) {
         let h = g_bfs.create_handle(g.sequence(*neighbor), neighbor.id());
@@ -155,7 +139,6 @@ fn bfs_parallel_step(g : Arc<HashGraph>,
         g_bfs.create_edge(&edge);
         
         //maybe better to return the edge to avoid deadlocks?
-        let added_handles = added_handles_lock.lock().unwrap();
         added_handles.push(h);
     }
 }
@@ -165,23 +148,18 @@ fn show_edge(a: &Handle, b: &Handle) {
     println!("{} --> {}", a.id(), b.id());
 }
 /// Prints all nodes and edges of a given HashGraph
-fn display_node_edges(g_dfs: Arc<HashGraph>, h: Arc<Handle>) {
+fn display_node_edges(g_dfs: &HashGraph, h: &Handle) {
     println!("node {}", h.id());
 
     let mut children = vec![];
 
-    handle_edges_iter(g_dfs.as_ref(), *h, Direction::Right)
+    //Obtain list of edges
+    let edges : Vec<_> = handle_edges_iter(g_dfs, *h, Direction::Right).collect();
+    
+    edges.par_iter()    
         .for_each(|n| {
-            let h1 = Arc::clone(&h);
-            children.push(thread::spawn(move ||  {
-                show_edge(&h1, &n)
-            }))
-        });
-
-    //Wait for threads to end
-    for child in children {
-        child.join().unwrap();
-    }     
+            show_edge(h, n)
+        });   
     
 }
 
