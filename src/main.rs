@@ -54,30 +54,20 @@ fn process_step(h: &Handle) -> String {
 
     format!("{}{}", h.id().to_string(), orient)
 }
-/// Add a given step to a given path
-fn create_into_hashmap(
-    g: &HashGraph,
-    path_to_steps: &mut HashMap<String, Vec<String>>,
-    path: &PathId,
-    step: &Handle,
-) -> bool {
-    let path_name = g.get_path(path).unwrap().name.clone();
-
-    path_to_steps
-        .entry(path_name)
-        .or_default()
-        .push(process_step(step));
-
-    true
-}
 
 /// Returns all steps of a given path
-fn print_all_steps(graph: &HashGraph, path_id : &PathId, path_to_steps_map : &mut HashMap<String, Vec<String>>) {
-    //let mut children : Vec<_> = vec![];
+fn get_steps_of_path(graph: &HashGraph, path_id : &PathId) -> Vec<String> {
+    let mut steps_of_path : Vec<String> = vec![];
     graph.paths.get(path_id).unwrap().nodes.iter()
         .for_each(|handle| {
-            create_into_hashmap(graph,path_to_steps_map,path_id, &handle);
-        })
+            steps_of_path.push(process_step(handle));
+        });
+    
+    //let mut path_map = HashMap::new();
+    //let path_name = graph.get_path(path_id).unwrap().name.clone();
+    //path_map.insert(path_name, steps_of_path);
+
+    steps_of_path
 }
 
 /// Converts paths into sequences of nodes
@@ -85,11 +75,26 @@ fn paths_to_steps(graph : &HashGraph) -> HashMap<String, Vec<String>> {
     
     let mut path_to_steps_map: HashMap<String, Vec<String>> = HashMap::new();
 
-    graph.paths.par_iter()
-                    .for_each(|(path_id, _)| {
-                        path_to_steps_map.par_extend(
-                            print_all_steps(graph, path_id, &path_to_steps_map));
-                    });
+    path_to_steps_map.par_extend(
+        graph.paths.par_iter()
+                            .map(|(path_id, _)| {
+                                let path_name = graph.get_path(path_id).unwrap().name.clone();
+                                let steps_list = get_steps_of_path(graph, &path_id);
+                                (path_name,steps_list)
+
+                                //Cannot borrow as mutable
+                                //path_to_steps_map.insert(path_name, steps_list);
+                            })
+    );
+
+
+
+    // for value in graph.paths.iter()
+    //                         .map(|(path_id, _)| {
+    //                             get_steps_of_path(graph, &path_id);
+    //                         }) {
+    //                             println!("Value is {:#?}",value);
+    //                         }
 
     path_to_steps_map
 }
@@ -103,26 +108,26 @@ fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
 
 /// Computes the bfs of a given variation graph
 fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
-    let current_handle = Handle::pack(*node_id, false);
-    let mut added_handles: Vec<Handle> = vec![];
+    // let current_handle = Handle::pack(*node_id, false);
+    // let mut added_handles: Vec<Handle> = vec![];
 
-    if !g_bfs.has_node(*node_id) {
-        g_bfs.create_handle(g.sequence(current_handle), *node_id);
-    }
+    // if !g_bfs.has_node(*node_id) {
+    //     g_bfs.create_handle(g.sequence(current_handle), *node_id);
+    // }
 
-    // Get neighbors for each node
-    let neighbors : Vec<_> = handle_edges_iter(g, current_handle, Direction::Right).collect();
+    // // Get neighbors for each node
+    // let neighbors : Vec<_> = handle_edges_iter(g, current_handle, Direction::Right).collect();
 
-    neighbors.par_iter()
-             .for_each(|neighbor| {
-                bfs_parallel_step(g, g_bfs, &neighbor, &current_handle, &mut added_handles);
-             });
+    // neighbors.par_iter()
+    //          .for_each(|neighbor| {
+    //             bfs_parallel_step(g, g_bfs, &neighbor, &current_handle, &mut added_handles);
+    //          });
 
-    //Repeat in parallel for all added handles
-    added_handles.par_iter()
-                .for_each(|handle|{
-                    bfs_support(g, g_bfs, &handle.id());
-                });
+    // //Repeat in parallel for all added handles
+    // added_handles.par_iter()
+    //             .for_each(|handle|{
+    //                 bfs_support(g, g_bfs, &handle.id());
+    //             });
         
 }
 
@@ -150,8 +155,6 @@ fn show_edge(a: &Handle, b: &Handle) {
 /// Prints all nodes and edges of a given HashGraph
 fn display_node_edges(g_dfs: &HashGraph, h: &Handle) {
     println!("node {}", h.id());
-
-    let mut children = vec![];
 
     //Obtain list of edges
     let edges : Vec<_> = handle_edges_iter(g_dfs, *h, Direction::Right).collect();
@@ -773,23 +776,23 @@ fn main() {
         println!("Path to steps map: {:#?}",path_to_steps_map);
 
         // Obtains, for each node, its position in each path where the node is in
-        let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
-             get_node_positions_in_paths(&graph, &mut path_to_steps_map);
+        // let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
+        //      get_node_positions_in_paths(&graph, &mut path_to_steps_map);
 
-        if verbose {
-            for node_id in node_id_to_path_and_pos_map.keys() {
-                let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id);
-                println!("Node_id : {}", node_id);
+        // if verbose {
+        //     for node_id in node_id_to_path_and_pos_map.keys() {
+        //         let path_and_pos_map = node_id_to_path_and_pos_map.get(node_id);
+        //         println!("Node_id : {}", node_id);
 
-                for (path, pos) in path_and_pos_map.unwrap() {
-                    println!("Path: {}  -- Pos: {}", path, pos);
-                }
-            }
-        }
+        //         for (path, pos) in path_and_pos_map.unwrap() {
+        //             println!("Path: {}  -- Pos: {}", path, pos);
+        //         }
+        //     }
+        // }
 
         //Obtains the tree representing the bfs
         //let graph_arc = Arc::new(graph);
-        let g_bfs: HashGraph = bfs(&graph, &NodeId::from(1));
+        //let g_bfs: HashGraph = bfs(&graph, &NodeId::from(1));
         
 
         // if verbose {
