@@ -62,10 +62,6 @@ fn get_steps_of_path(graph: &HashGraph, path_id : &PathId) -> Vec<String> {
         .for_each(|handle| {
             steps_of_path.push(process_step(handle));
         });
-    
-    //let mut path_map = HashMap::new();
-    //let path_name = graph.get_path(path_id).unwrap().name.clone();
-    //path_map.insert(path_name, steps_of_path);
 
     steps_of_path
 }
@@ -81,20 +77,8 @@ fn paths_to_steps(graph : &HashGraph) -> HashMap<String, Vec<String>> {
                                 let path_name = graph.get_path(path_id).unwrap().name.clone();
                                 let steps_list = get_steps_of_path(graph, &path_id);
                                 (path_name,steps_list)
-
-                                //Cannot borrow as mutable
-                                //path_to_steps_map.insert(path_name, steps_list);
                             })
     );
-
-
-
-    // for value in graph.paths.iter()
-    //                         .map(|(path_id, _)| {
-    //                             get_steps_of_path(graph, &path_id);
-    //                         }) {
-    //                             println!("Value is {:#?}",value);
-    //                         }
 
     path_to_steps_map
 }
@@ -657,71 +641,46 @@ fn get_node_positions_in_paths(
     path_to_steps_map: &mut HashMap<String, Vec<String>>,
 ) -> BTreeMap<NodeId, HashMap<String, usize>> {
     let mut node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
-    let mut node_id_to_path_and_pos_map : Arc<_> = Arc::from(Mutex::from(node_id_to_path_and_pos_map));
+    //let mut b: BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
 
-    path_to_steps_map.par_iter_mut()
-    .for_each(|(path_name, steps_list)| {
-        let mut pos = 0;
-
-        steps_list.iter_mut()
-            .for_each(|node_id_is_rev|{
-                // Get orientation
-                let _is_rev = node_id_is_rev.pop().unwrap();
-                // Get the id of the node string -> NodeId
-                let node_id: NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
-
-                let node_handle = Handle::pack(node_id, false);
-                let seq = graph.sequence(node_handle);
-
-                let mut n = node_id_to_path_and_pos_map.lock().unwrap();
-                n.entry(node_id).or_insert(HashMap::new());
-
-                if !n[&node_id].contains_key(path_name) {
-                        n
-                         .get_mut(&node_id)
-                         .unwrap()
-                         .insert(String::from(path_name), pos);
-                }
-
-                pos += seq.len();
-            
-            });
+    node_id_to_path_and_pos_map.par_extend(
+       //b.into_par_iter()
         
-        
+        path_to_steps_map.par_iter()
+              .for_each(|(path_name, steps_list)| {
+              
+                let mut pos = 0;
 
-    });
+                steps_list.iter_mut()
+                    .for_each(|node_id_is_rev|{
+                        
+                        // Get orientation
+                        let _is_rev = node_id_is_rev.pop().unwrap();
+                        
+                        // Get the id of the node string -> NodeId
+                        let node_id: NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
 
-    // for (path_name, steps_list) in path_to_steps_map {
-    //     let mut pos = 0;
+                        let node_handle = Handle::pack(node_id, false);
+                        let seq = graph.sequence(node_handle);
 
-    //     for node_id_is_rev in steps_list {
-    //         // Get orientation
-    //         let _is_rev = node_id_is_rev.pop().unwrap();
-    //         // Get the id of the node string -> NodeId
-    //         let node_id: NodeId = NodeId::from(node_id_is_rev.parse::<u64>().unwrap());
+                        let mut n = node_id_to_path_and_pos_map;
+                        n.entry(node_id).or_insert(HashMap::new());
 
-    //         let node_handle = Handle::pack(node_id, false);
-    //         let seq = graph.sequence(node_handle);
+                        if !n[&node_id].contains_key(path_name) {
+                                n
+                                .get_mut(&node_id)
+                                .unwrap()
+                                .insert(String::from(path_name), pos);
+                        }
 
-    //         node_id_to_path_and_pos_map
-    //             .entry(node_id)
-    //             .or_insert(HashMap::new());
+                        pos += seq.len();
+                    
+                    });
+                    
+        })
+    );
 
-    //         if !node_id_to_path_and_pos_map[&node_id].contains_key(path_name) {
-    //             node_id_to_path_and_pos_map
-    //                 .get_mut(&node_id)
-    //                 .unwrap()
-    //                 .insert(String::from(path_name), pos);
-    //         }
-
-    //         pos += seq.len();
-    //     }
-    // }
-
-    let lock = Arc::try_unwrap(node_id_to_path_and_pos_map).expect("Lock still has multiple owners");
-    lock.into_inner().expect("Mutex cannot be locked")
-
-    //node_id_to_path_and_pos_map
+    node_id_to_path_and_pos_map
 }
 
 /// The function that runs the script
@@ -776,8 +735,8 @@ fn main() {
         println!("Path to steps map: {:#?}",path_to_steps_map);
 
         // Obtains, for each node, its position in each path where the node is in
-        // let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
-        //      get_node_positions_in_paths(&graph, &mut path_to_steps_map);
+        let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
+              get_node_positions_in_paths(&graph, &mut path_to_steps_map);
 
         // if verbose {
         //     for node_id in node_id_to_path_and_pos_map.keys() {
