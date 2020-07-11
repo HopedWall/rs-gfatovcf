@@ -28,6 +28,7 @@ use std::thread;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use rayon::prelude::*;
+use std::mem;
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
@@ -641,17 +642,16 @@ fn get_node_positions_in_paths(
     path_to_steps_map: &mut HashMap<String, Vec<String>>,
 ) -> BTreeMap<NodeId, HashMap<String, usize>> {
     let mut node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
-    //let mut b: BTreeMap<NodeId, HashMap<String, usize>> = BTreeMap::new();
+    let node_id_to_path_and_pos_map = Mutex::new(node_id_to_path_and_pos_map);
 
-    node_id_to_path_and_pos_map.par_extend(
-       //b.into_par_iter()
+    //node_id_to_path_and_pos_map.par_extend(
         
         path_to_steps_map.par_iter()
               .for_each(|(path_name, steps_list)| {
               
                 let mut pos = 0;
 
-                steps_list.iter_mut()
+                steps_list.iter()
                     .for_each(|node_id_is_rev|{
                         
                         // Get orientation
@@ -663,7 +663,11 @@ fn get_node_positions_in_paths(
                         let node_handle = Handle::pack(node_id, false);
                         let seq = graph.sequence(node_handle);
 
-                        let mut n = node_id_to_path_and_pos_map;
+                        pos += seq.len();
+
+                        //(node_id, (String::from(path_name), pos-seq.len()))
+
+                        let mut n = node_id_to_path_and_pos_map.lock().unwrap();
                         n.entry(node_id).or_insert(HashMap::new());
 
                         if !n[&node_id].contains_key(path_name) {
@@ -673,14 +677,27 @@ fn get_node_positions_in_paths(
                                 .insert(String::from(path_name), pos);
                         }
 
-                        pos += seq.len();
+                        
                     
-                    });
+                    }) // --- steps-list.map()
                     
-        })
-    );
+        }); // --- path-to-steps-map.map()
 
-    node_id_to_path_and_pos_map
+    //);  --- par-extend
+
+    let result : BTreeMap<NodeId,HashMap<String, usize>> =  BTreeMap::new();
+
+    //let result = 
+
+    // let result: Vec<_> = (0..3).into_par_iter().map(|i| {
+    //     data[0] + data[1] + data[0 + 1 + 2]
+    // })
+    // .collect();
+    
+
+    //result
+    node_id_to_path_and_pos_map.lock().unwrap()
+
 }
 
 /// The function that runs the script
