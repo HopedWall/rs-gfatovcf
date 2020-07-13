@@ -81,15 +81,15 @@ fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
 /// Wrapper function for bfs_new
 fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     let mut g_bfs = HashGraph::new();
-    //let mut g_bfs = MutableHandleGraph::new();
-    bfs_support(g, &mut g_bfs, node_id);
+    let mut pending_handles : Vec<Handle> = Vec::new();
+    bfs_support(g, &mut g_bfs, node_id, &mut pending_handles);
     g_bfs
 }
 
 /// Computes the bfs of a given variation graph
-fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
+fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId, pending_handles: &mut Vec<Handle>) {
     let current_handle = Handle::pack(*node_id, false);
-    let mut added_handles: Vec<Handle> = vec![];
+    //let mut added_handles: Vec<Handle> = vec![];
 
     if !g_bfs.has_node(*node_id) {
         g_bfs.create_handle(g.sequence(current_handle), *node_id);
@@ -98,16 +98,21 @@ fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId) {
     for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
         if !g_bfs.has_node(neighbor.id()) {
             let h = g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
-            added_handles.push(h);
+            pending_handles.push(h);
 
             let edge = Edge::edge_handle(current_handle, neighbor);
             g_bfs.create_edge(&edge);
         }
     }
 
-    for h in &added_handles {
-        bfs_support(g, g_bfs, &h.id());
+    if !pending_handles.is_empty() {
+        let next_handle = pending_handles.pop().unwrap();
+        bfs_support(g, g_bfs, &next_handle.id(), pending_handles);
     }
+
+    //for h in &added_handles {
+    //    bfs_support(g, g_bfs, &h.id());
+    //}
 }
 
 /// Prints an edge of a given HashGraph
