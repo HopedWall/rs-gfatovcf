@@ -81,15 +81,50 @@ fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
 /// Wrapper function for bfs_new
 fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     let mut g_bfs = HashGraph::new();
-    let mut pending_handles : Vec<Handle> = Vec::new();
-    bfs_support(g, &mut g_bfs, node_id, &mut pending_handles);
+    
+    //Create queue
+    let mut q: VecDeque<NodeId> = VecDeque::new();
+
+    //Insert first value
+    q.push_back(*node_id);
+    
+    while !q.is_empty() {
+
+        //println!("Queue is {:#?}",q);
+
+        let curr_node = q.pop_front().unwrap();
+        let current_handle = Handle::pack(curr_node, false);
+
+        //Check if curr_node is already in g_bfs
+        if !g_bfs.has_node(curr_node) {
+            g_bfs.create_handle(g.sequence(current_handle), curr_node);
+        }
+
+        for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
+            if !g_bfs.has_node(neighbor.id()) {
+                //Create handle in g_bfs
+                g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
+                
+                //Add neighbor id to queue
+                q.push_back(neighbor.id());
+    
+                //Create edge from curr_handle to new node in g_bfs
+                let edge = Edge::edge_handle(current_handle, neighbor);
+                g_bfs.create_edge(&edge);
+
+                //Add new node to queue
+                q.push_back(neighbor.id());
+            }
+        }
+
+    }
+    
     g_bfs
 }
 
 /// Computes the bfs of a given variation graph
 fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId, pending_handles: &mut Vec<Handle>) {
     let current_handle = Handle::pack(*node_id, false);
-    //let mut added_handles: Vec<Handle> = vec![];
 
     if !g_bfs.has_node(*node_id) {
         g_bfs.create_handle(g.sequence(current_handle), *node_id);
