@@ -122,34 +122,6 @@ fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     g_bfs
 }
 
-/// Computes the bfs of a given variation graph
-fn bfs_support(g: &HashGraph, g_bfs: &mut HashGraph, node_id: &NodeId, pending_handles: &mut Vec<Handle>) {
-    let current_handle = Handle::pack(*node_id, false);
-
-    if !g_bfs.has_node(*node_id) {
-        g_bfs.create_handle(g.sequence(current_handle), *node_id);
-    }
-
-    for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
-        if !g_bfs.has_node(neighbor.id()) {
-            let h = g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
-            pending_handles.push(h);
-
-            let edge = Edge::edge_handle(current_handle, neighbor);
-            g_bfs.create_edge(&edge);
-        }
-    }
-
-    if !pending_handles.is_empty() {
-        let next_handle = pending_handles.pop().unwrap();
-        bfs_support(g, g_bfs, &next_handle.id(), pending_handles);
-    }
-
-    //for h in &added_handles {
-    //    bfs_support(g, g_bfs, &h.id());
-    //}
-}
-
 /// Prints an edge of a given HashGraph
 fn show_edge(a: &Handle, b: &Handle) {
     println!("{} --> {}", a.id(), b.id());
@@ -266,25 +238,27 @@ fn detect_bubbles(
 /// Prints all paths between two nodes
 fn print_all_paths_util(
     g: &HashGraph,
-    u: &NodeId,
-    d: &NodeId,
+    curr_start_node_id: &NodeId,
+    end_node_id: &NodeId,
     visited_node_id_set: &mut HashSet<NodeId>,
     path_list: &mut Vec<NodeId>,
     all_path_list: &mut Vec<Vec<NodeId>>,
 ) {
-    if !visited_node_id_set.contains(&u) {
-        visited_node_id_set.insert(*u);
-        path_list.push(*u);
+    //println!("Before if 1");
+    if !visited_node_id_set.contains(&curr_start_node_id) {
+        visited_node_id_set.insert(*curr_start_node_id);
+        path_list.push(*curr_start_node_id);
     }
 
-    if u == d {
+    if curr_start_node_id == end_node_id {
+        //println!("{:#?}",path_list.to_vec());
         all_path_list.push(path_list.to_vec());
     } else {
-        for i_node in handle_edges_iter(g, Handle::pack(*u, false), Direction::Right) {
+        for i_node in handle_edges_iter(g, Handle::pack(*curr_start_node_id, false), Direction::Right) {
             print_all_paths_util(
                 g,
                 &i_node.id(),
-                d,
+                end_node_id,
                 visited_node_id_set,
                 path_list,
                 all_path_list,
@@ -292,8 +266,10 @@ fn print_all_paths_util(
         }
     }
 
+    //println!("BEFORE POP");
     path_list.pop();
-    visited_node_id_set.remove(&u);
+    //println!("BEFORE REMOVE");
+    visited_node_id_set.remove(&curr_start_node_id);
 }
 
 /// Prints all paths in a given HashGrap, starting from a specific node and ending in another node
@@ -301,38 +277,19 @@ fn print_all_paths(
     g: &HashGraph,
     start_node_id: &NodeId,
     end_node_id: &NodeId,
-    all_path_list: &mut Vec<Vec<NodeId>>,
+    all_paths_list: &mut Vec<Vec<NodeId>>,
 ) {
     let mut visited_node_id_set: HashSet<NodeId> = HashSet::new();
 
-    let mut path_list: Vec<NodeId> = Vec::new();
-
-    // let start_handle = Handle::pack(*start_node_id, false);
-    // let end_handle = Handle::pack(*end_node_id, false);
-
-    // for neighbor in handle_edges_iter(g, start_handle, Direction::Right) {
-
-    //     if !visited_node_id_set.contains(&neighbor.id()) {
-    //         visited_node_id_set.insert(neighbor.id());
-    //         path_list.push(neighbor.id());
-    //     }
-
-    //     if neighbor == end_handle {
-    //         all_path_list.push(path_list.to_vec());
-    //     } else {
-    //         for n_of_n in handle_edges_iter(g, neighbor, Direction::Right) {
-
-    //         }
-    //     }
-    // }
+    let mut current_path_list: Vec<NodeId> = Vec::new();
 
     print_all_paths_util(
         g,
         start_node_id,
         end_node_id,
         &mut visited_node_id_set,
-        &mut path_list,
-        all_path_list,
+        &mut current_path_list,
+        all_paths_list,
     );
 }
 
@@ -364,6 +321,8 @@ fn detect_all_variants(
         //     ref_path.push(x.parse::<u64>().unwrap());
         // }
 
+        //println!("BEFORE DETECT");
+
         detect_variants_per_reference(
             &current_ref,
             &ref_path,
@@ -373,6 +332,8 @@ fn detect_all_variants(
             &mut stuff_to_alts_map,
             verbose,
         );
+
+        //println!("AFTER DETECT");
     }
 
     // Convert stuff_to_alts_map to a more readable format
@@ -432,6 +393,7 @@ fn detect_variants_per_reference(
     stuff_to_alts_map: &mut HashMap<String, HashSet<String>>,
     verbose: bool,
 ) {
+    //println!("BEFORE GET LAST");
     // Create closure that will be used later
     let get_last = |prec_node_seq_ref: &str, node_seq_ref| {
         let mut last = prec_node_seq_ref[prec_node_seq_ref.len() - 1..].to_string();
@@ -446,20 +408,28 @@ fn detect_variants_per_reference(
             println!("Bubble [{},{}]", start, end);
         }
 
+        //println!("BEFORE FIND START");
+
         let start_node_index_in_ref_path: usize;
         match ref_path.iter().position(|&r| NodeId::from(r) == *start) {
             None => continue, //ignore, start not found in ref path
             Some(r) => start_node_index_in_ref_path = r,
         };
 
+        //println!("BEFORE PRINT ALL PATHS");
+
         let mut all_path_list: Vec<Vec<NodeId>> = Vec::new();
         print_all_paths(&graph, start, end, &mut all_path_list);
+
+        //println!("AFTER PRINT ALL PATHS");
 
         //println!("All paths list: {:?}",all_path_list);
         for path in &all_path_list {
             if verbose {
                 println!("\tPath: {:?}", path);
             }
+
+            //println!("INSIDE FOR LOOP");
 
             let mut pos_ref = node_id_to_path_and_pos_map[start][current_ref] + 1;
             let mut pos_path = pos_ref;
