@@ -22,7 +22,7 @@ use std::cmp;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::VecDeque;
-use std::io;
+//use std::io;
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
@@ -82,15 +82,14 @@ fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
 /// Wrapper function for bfs_new
 fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     let mut g_bfs = HashGraph::new();
-    
+
     //Create queue
     let mut q: VecDeque<NodeId> = VecDeque::new();
 
     //Insert first value
     q.push_back(*node_id);
-    
-    while !q.is_empty() {
 
+    while !q.is_empty() {
         //println!("Queue is {:#?}",q);
 
         let curr_node = q.pop_front().unwrap();
@@ -105,10 +104,10 @@ fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
             if !g_bfs.has_node(neighbor.id()) {
                 //Create handle in g_bfs
                 g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
-                
+
                 //Add neighbor id to queue
                 q.push_back(neighbor.id());
-    
+
                 //Create edge from curr_handle to new node in g_bfs
                 let edge = Edge::edge_handle(current_handle, neighbor);
                 g_bfs.create_edge(&edge);
@@ -117,9 +116,8 @@ fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
                 q.push_back(neighbor.id());
             }
         }
-
     }
-    
+
     g_bfs
 }
 
@@ -235,35 +233,31 @@ fn detect_bubbles(
 
     possible_bubbles_list
 }
-   
 
 /// Prints all paths in a given HashGrap, starting from a specific node and ending in another node
 fn find_all_paths_between(
     g: &HashGraph,
     start_node_id: &NodeId,
     end_node_id: &NodeId,
-) -> Vec<Vec<NodeId>>
+) -> Vec<Vec<NodeId>> {
+    let mut all_paths_list: Vec<Vec<NodeId>> = Vec::new();
 
-{
-    let mut all_paths_list : Vec<Vec<NodeId>> = Vec::new();
-    
     let mut visited_node_id_set: HashSet<NodeId> = HashSet::new();
     //Create queue
     let mut q: VecDeque<NodeId> = VecDeque::new();
     //Insert first value
     q.push_back(*start_node_id);
     all_paths_list.push(vec![*start_node_id]);
-    
-    while !q.is_empty() {
 
+    while !q.is_empty() {
         //println!("All paths is {:#?}",all_paths_list);
         //println!("Q is: {:#?}",q);
 
         let curr_node = q.pop_front().unwrap();
 
         if curr_node == *end_node_id {
-            continue
-        } 
+            continue;
+        }
 
         visited_node_id_set.insert(curr_node);
         let current_handle = Handle::pack(curr_node, false);
@@ -279,9 +273,9 @@ fn find_all_paths_between(
         //let v = Vec::from_iter(curr_paths_list);
 
         //Get all paths that end in curr_node
-        let mut curr_paths_list : Vec<_> = all_paths_list.clone();
+        let mut curr_paths_list: Vec<_> = all_paths_list.clone();
         curr_paths_list.retain(|x| x.ends_with(&[curr_node]));
-        
+
         //Only keep those which don't
         all_paths_list.retain(|x| !x.ends_with(&[curr_node]));
 
@@ -289,29 +283,25 @@ fn find_all_paths_between(
         //io::stdin().read_line(&mut String::new());
 
         for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
-            
             //Append, for each current_path, this neighbor
             let mut temp = curr_paths_list.clone();
             temp.iter_mut().for_each(|x| x.push(neighbor.id()));
             all_paths_list.append(&mut temp);
-            
-            
+
             //Add new node to queue
-            if !visited_node_id_set.contains(&neighbor.id()) && !q.contains(&neighbor.id()){
+            if !visited_node_id_set.contains(&neighbor.id()) && !q.contains(&neighbor.id()) {
                 q.push_back(neighbor.id());
             }
-            
         }
 
         //println!("All_paths_list: {:#?}",all_paths_list);
         //io::stdin().read_line(&mut String::new());
-        
     }
 
     //Only keep paths that end in end_node_id
     //start_node_id does not have to be checked
     all_paths_list.retain(|x| x.ends_with(&[*end_node_id]));
-    
+
     //println!("All paths between {} and {} are: {:#?}",start_node_id, end_node_id, all_paths_list);
 
     //io::stdin().read_line(&mut String::new());
@@ -319,7 +309,7 @@ fn find_all_paths_between(
     all_paths_list
 }
 
-/// Detects variants in a variation graph
+/// Detects variants from a list of bubbles
 fn detect_all_variants(
     path_to_steps_map: &HashMap<String, Vec<String>>,
     possible_bubbles_list: &[(NodeId, NodeId)],
@@ -465,6 +455,13 @@ fn detect_variants_per_reference(
             let mut current_index_step_ref = 0;
 
             for _i in 0..max_index {
+                //Check if ref_path goes out of bounds
+                //TODO: check how paths_to_steps is created, there may be some problems there
+                // since ref_path is obtained from paths_to_steps
+                if current_index_step_ref + start_node_index_in_ref_path >= ref_path.len() {
+                    continue;
+                }
+
                 let mut current_node_id_ref =
                     NodeId::from(ref_path[current_index_step_ref + start_node_index_in_ref_path]);
                 let mut current_node_id_path = path[current_index_step_path];
