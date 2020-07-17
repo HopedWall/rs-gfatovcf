@@ -23,6 +23,8 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 //use std::io;
+use json::*;
+use std::io::BufWriter;
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
@@ -677,6 +679,44 @@ fn get_node_positions_in_paths(
     node_id_to_path_and_pos_map
 }
 
+/// Returns the json of a given graph
+fn graph_to_json(graph: &HashGraph) -> JsonValue {
+    //Create empty json
+    let mut graph_json = JsonValue::new_object();
+
+    //Obtains nodes and edges in the graph
+    let mut nodes: Vec<u64> = handles_iter(graph).map(|x| u64::from(x.id())).collect();
+    let mut edges: Vec<(u64, u64)> = std::iter::from_fn(graph.edges_iter_impl())
+        .map(|edge| (u64::from(edge.0.id()), u64::from(edge.1.id())))
+        .collect();
+
+    //Sort both vecs so that they're easier to read
+    nodes.sort();
+    edges.sort();
+
+    //Create an array of objects with from/where for each edge
+    let mut edges_array = JsonValue::new_array();
+    for (start, end) in edges {
+        let temp = object! {
+            start: start,
+            end: end
+        };
+        edges_array.push(temp).unwrap();
+    }
+
+    graph_json["nodes"] = nodes.into();
+    graph_json["edges"] = edges_array;
+
+    graph_json
+}
+
+/// Writes the json to a file
+fn json_to_file(json: &JsonValue, path: &PathBuf) -> std::io::Result<()> {
+    let mut buffer = BufWriter::new(File::create(path)?);
+    json.write_pretty(&mut buffer, 4)?;
+    Ok(())
+}
+
 /// The function that runs the script
 fn main() {
     let matches = App::new("rs-GFAtoVCF")
@@ -707,6 +747,14 @@ fn main() {
                 .long("verbose")
                 .help("Sets whether to display debug messages or not"),
         )
+        .arg(
+            Arg::with_name("json")
+                .short("j")
+                .long("json")
+                .value_name("FILE")
+                .takes_value(true)
+                .help("Sets the path where to store the json of both the starting graph and its bfs-tree"),
+        )
         .get_matches();
 
     let in_path_file = matches
@@ -716,12 +764,20 @@ fn main() {
         .value_of("output")
         .expect("Could not parse argument --output");
     let verbose = matches.is_present("verbose");
+    let json_out = matches.value_of("json");
 
     //let in_path_file = "./input/samplePath3.gfa";
     //let out_path_file = "./input/samplePath3.vcf";
 
     if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path_file)) {
         let graph = HashGraph::from_gfa(&gfa);
+
+        // Stores json of starting graph in a file
+        if json_out.is_some() {
+            let json = graph_to_json(&graph);
+            let buffer = PathBuf::from(format!("{}-graph.json", json_out.unwrap()));
+            json_to_file(&json, &buffer).expect("Cannot write json");
+        }
 
         // Obtains, for each path, a list of all its steps (its nodes)
         let mut path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(&graph);
@@ -743,6 +799,13 @@ fn main() {
 
         //Obtains the tree representing the bfs
         let g_bfs: HashGraph = bfs(&graph, &NodeId::from(1));
+
+        // Stores json of bfs-tree in a file
+        if json_out.is_some() {
+            let json = graph_to_json(&g_bfs);
+            let buffer = PathBuf::from(format!("{}-bfs.json", json_out.unwrap()));
+            json_to_file(&json, &buffer).expect("Cannot write json");
+        }
 
         if verbose {
             for h in handles_iter(&g_bfs) {

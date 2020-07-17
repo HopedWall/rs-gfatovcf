@@ -12,5 +12,7 @@ clap = "2.33.1"
 chrono = "0.4"
 handlegraph = "0.2.0"
 gfa = "0.2.3"
+json = "0.12.4"
+
 
 
