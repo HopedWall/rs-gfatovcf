@@ -1,5 +1,5 @@
 ##fileformat=VCFv4.2
-##fileDate=2020-06-19 16:49:02
+##fileDate=2020-07-18 10:33:29
 ##reference=x.fa
 ##reference=y.fa
 ##reference=z.fa
@@ -27,5 +27,3 @@ z	18	.	TAA	T	.	.	TYPE=del	GT	0|1
 z	25	.	TGG	T	.	.	TYPE=del	GT	0|1
 z	36	.	A	T	.	.	TYPE=snv	GT	0|1
 z	41	.	T	A	.	.	TYPE=snv	GT	0|1
-
-

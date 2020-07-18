@@ -214,24 +214,47 @@ fn detect_bubbles(
     dist_to_num_nodes: &BTreeMap<u64, usize>,
 ) -> Vec<(NodeId, NodeId)> {
     let mut possible_bubbles_list: Vec<(NodeId, NodeId)> = Vec::new();
-    let mut first_bubble = true;
+    let mut open_bubble = false;
 
+    let mut curr_bubble: (NodeId, NodeId) = (NodeId::from(0), NodeId::from(0));
     for node_id in ordered_node_id_list {
-        let mut pair: (NodeId, NodeId) = (NodeId::from(0), NodeId::from(0));
-        let key = distances_map[&node_id];
-        if dist_to_num_nodes[&key] == 1 {
-            if !first_bubble {
-                let latest_bubble = possible_bubbles_list.last_mut().unwrap();
-                latest_bubble.1 = *node_id;
-            }
-            first_bubble = false;
-            pair.0 = *node_id;
-            possible_bubbles_list.push(pair); //Ok, pair.2 is a placeholder
-        }
-    }
 
-    //Delete last bubble, won't be used anyways
-    possible_bubbles_list.pop();
+        //Get distance of current NodeId from root in g_bfs
+        let node_distance = distances_map[&node_id];
+        
+        //If there is only 1 node at that distance
+        if dist_to_num_nodes[&node_distance] == 1 {
+            
+            //And there are multiple nodes at distance+1 -> open bubble
+            //Note: node_distance could go out of bounds
+            if ((node_distance+1) as usize) < dist_to_num_nodes.len() && dist_to_num_nodes[&(node_distance+1)] > 1 {
+                
+                //Close current bubble if one is already open
+                if open_bubble {
+                    curr_bubble.1 = *node_id;
+                    possible_bubbles_list.push(curr_bubble);
+                    curr_bubble = (NodeId::from(0), NodeId::from(0));
+                }
+                
+                // Start new bubble
+                curr_bubble.0 = *node_id;
+                open_bubble = true;
+            
+            } else {
+                
+                //If a bubble is open
+                if open_bubble {
+                    //Close bubble
+                    curr_bubble.1 = *node_id;
+                    possible_bubbles_list.push(curr_bubble);
+                
+                    //Reset curr_bubble for future bubbles
+                    curr_bubble = (NodeId::from(0), NodeId::from(0));
+                    open_bubble = false;
+                }
+            }
+        } 
+    }
 
     possible_bubbles_list
 }
@@ -1330,8 +1353,11 @@ mod tests {
        let possible_bubbles_list: Vec<(NodeId, NodeId)> =
            detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
-       //println!("Possible bubbles list: {:#?}",possible_bubbles_list);   
+        let json = graph_to_json(&g_bfs);
+        let buffer = PathBuf::from(format!("./input/bfs_test_1"));
+        json_to_file(&json, &buffer).expect("Cannot write json");
 
+       //println!("Possible bubbles list: {:#?}",possible_bubbles_list);   
        assert!(possible_bubbles_list.is_empty());
     }
 
@@ -1371,7 +1397,7 @@ mod tests {
  
         //println!("Possible bubbles list: {:#?}",possible_bubbles_list);   
  
-        assert!(possible_bubbles_list.contains(&(NodeId::from(1), NodeId::from(2)))); 
+        assert!(possible_bubbles_list.contains(&(NodeId::from(1), NodeId::from(4)))); 
     }
 
 
