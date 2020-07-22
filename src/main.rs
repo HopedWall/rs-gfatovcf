@@ -218,42 +218,39 @@ fn detect_bubbles(
 
     let mut curr_bubble: (NodeId, NodeId) = (NodeId::from(0), NodeId::from(0));
     for node_id in ordered_node_id_list {
-
         //Get distance of current NodeId from root in g_bfs
         let node_distance = distances_map[&node_id];
-        
+
         //If there is only 1 node at that distance
         if dist_to_num_nodes[&node_distance] == 1 {
-            
             //And there are multiple nodes at distance+1 -> open bubble
             //Note: node_distance could go out of bounds
-            if ((node_distance+1) as usize) < dist_to_num_nodes.len() && dist_to_num_nodes[&(node_distance+1)] > 1 {
-                
+            if ((node_distance + 1) as usize) < dist_to_num_nodes.len()
+                && dist_to_num_nodes[&(node_distance + 1)] > 1
+            {
                 //Close current bubble if one is already open
                 if open_bubble {
                     curr_bubble.1 = *node_id;
                     possible_bubbles_list.push(curr_bubble);
                     curr_bubble = (NodeId::from(0), NodeId::from(0));
                 }
-                
+
                 // Start new bubble
                 curr_bubble.0 = *node_id;
                 open_bubble = true;
-            
             } else {
-                
                 //If a bubble is open
                 if open_bubble {
                     //Close bubble
                     curr_bubble.1 = *node_id;
                     possible_bubbles_list.push(curr_bubble);
-                
+
                     //Reset curr_bubble for future bubbles
                     curr_bubble = (NodeId::from(0), NodeId::from(0));
                     open_bubble = false;
                 }
             }
-        } 
+        }
     }
 
     possible_bubbles_list
@@ -266,6 +263,12 @@ fn find_all_paths_between(
     end_node_id: &NodeId,
 ) -> Vec<Vec<NodeId>> {
     let mut all_paths_list: Vec<Vec<NodeId>> = Vec::new();
+
+    //Put a limit on the maximum amount of edges that can be traversed
+    //this should prevent eccessive memory usage
+    let max_edges = 100;
+    let mut curr_edges = 0;
+    let mut edges_limit_reached = false;
 
     let mut visited_node_id_set: HashSet<NodeId> = HashSet::new();
     //Create queue
@@ -287,16 +290,6 @@ fn find_all_paths_between(
         visited_node_id_set.insert(curr_node);
         let current_handle = Handle::pack(curr_node, false);
 
-        //println!("Visited node id set is: {:#?}",visited_node_id_set);
-        //println!("Q is: {:#?}",q);
-        //println!("Curr_node_is: {}",curr_node);
-        //io::stdin().read_line(&mut String::new());
-
-        //Get all paths that end in curr_node
-        //let curr_paths_list : Vec<_> = all_paths_list.iter()
-        //                                    .filter(|x| x.ends_with(&[curr_node])).collect();
-        //let v = Vec::from_iter(curr_paths_list);
-
         //Get all paths that end in curr_node
         let mut curr_paths_list: Vec<_> = all_paths_list.clone();
         curr_paths_list.retain(|x| x.ends_with(&[curr_node]));
@@ -317,6 +310,17 @@ fn find_all_paths_between(
             if !visited_node_id_set.contains(&neighbor.id()) && !q.contains(&neighbor.id()) {
                 q.push_back(neighbor.id());
             }
+
+            //Break if too many edges have been visited
+            curr_edges = curr_edges + 1;
+            if curr_edges > max_edges {
+                edges_limit_reached = true;
+                break;
+            }
+        }
+
+        if edges_limit_reached {
+            break;
         }
 
         //println!("All_paths_list: {:#?}",all_paths_list);
@@ -457,11 +461,11 @@ fn detect_variants_per_reference(
             Some(r) => start_node_index_in_ref_path = r,
         };
 
-        //println!("BEFORE PRINT ALL PATHS");
+        //println!("BEFORE FIND ALL PATHS BETWEEN");
 
         let all_path_list: Vec<Vec<NodeId>> = find_all_paths_between(&graph, start, end);
 
-        //println!("AFTER PRINT ALL PATHS");
+        //println!("AFTER FIND ALL PATHS BETWEEN");
 
         //println!("All paths list: {:?}",all_path_list);
         for path in &all_path_list {
@@ -1127,7 +1131,7 @@ mod tests {
         assert!(possible_bubbles_list.contains(&(NodeId::from(16), NodeId::from(19))));
     }
 
-    fn run_whole_script(graph : HashGraph) -> Vec<Variant> {
+    fn run_whole_script(graph: HashGraph) -> Vec<Variant> {
         //Obtain preliminary data required for future steps
         let mut path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(&graph);
         let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
@@ -1212,159 +1216,33 @@ mod tests {
 
     #[test]
     fn find_all_paths_1() {
-       let mut graph = HashGraph::new();
-       
-       //Add nodes
-       let h1 = graph.append_handle("A");
-       let h2 = graph.append_handle("T");
-       let h3 = graph.append_handle("C");
-       let h4 = graph.append_handle("G");
-       let h5 = graph.append_handle("AC");
+        let mut graph = HashGraph::new();
 
-       //Add edges
-       graph.create_edge(&Edge(h1,h2));
-       graph.create_edge(&Edge(h2,h3));
-       graph.create_edge(&Edge(h3,h4));
-       //Loop
-       graph.create_edge(&Edge(h3,h5));
-       graph.create_edge(&Edge(h5,h3));
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AC");
 
-       let paths = find_all_paths_between(&graph, &h1.id(), &h4.id());
+        //Add edges
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h3, h4));
+        //Loop
+        graph.create_edge(&Edge(h3, h5));
+        graph.create_edge(&Edge(h5, h3));
 
-       assert!(paths.len()==1);
-       assert!(paths.contains(&vec![h1.id(),h2.id(),h3.id(),h4.id()]));
+        let paths = find_all_paths_between(&graph, &h1.id(), &h4.id());
+
+        assert!(paths.len() == 1);
+        assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h4.id()]));
     }
 
     #[test]
     fn find_all_paths_2() {
-       let mut graph = HashGraph::new();
-       
-       //Add nodes
-       let h1 = graph.append_handle("A");
-       let h2 = graph.append_handle("T");
-       let h3 = graph.append_handle("C");
-       let h4 = graph.append_handle("G");
-
-       //Add edges
-       //Path 1
-       graph.create_edge(&Edge(h1,h2));
-       //Path 2
-       graph.create_edge(&Edge(h1,h3));
-       graph.create_edge(&Edge(h3,h2));
-       //Path 3
-       graph.create_edge(&Edge(h3,h4));
-       graph.create_edge(&Edge(h4,h2));
-    
-       let paths = find_all_paths_between(&graph, &h1.id(), &h2.id());
-
-       assert!(paths.len()==3);
-       assert!(paths.contains(&vec![h1.id(),h2.id()]));
-       assert!(paths.contains(&vec![h1.id(),h3.id(),h2.id()]));
-       assert!(paths.contains(&vec![h1.id(),h3.id(),h4.id(),h2.id()]));
-    }
-
-    #[test]
-    fn find_bfs_1() {
-       let mut graph = HashGraph::new();
-       
-       //Add nodes
-       let h1 = graph.append_handle("A");
-       let h2 = graph.append_handle("T");
-       let h3 = graph.append_handle("C");
-       let h4 = graph.append_handle("G");
-       let h5 = graph.append_handle("AC");
-
-       //Add edges
-       graph.create_edge(&Edge(h1,h2));
-       graph.create_edge(&Edge(h2,h3));
-       graph.create_edge(&Edge(h3,h4));
-       //Loop
-       graph.create_edge(&Edge(h3,h5));
-       graph.create_edge(&Edge(h5,h3));
-
-       let g_bfs = bfs(&graph, &NodeId::from(1));
-
-       //Check g_bfs does not contain the loop
-       assert!(g_bfs.has_edge(h3,h5));
-       assert!(!g_bfs.has_edge(h5,h3));
-    }
-
-    #[test]
-    fn find_bfs_paths_2() {
-       let mut graph = HashGraph::new();
-       
-       //Add nodes
-       let h1 = graph.append_handle("A");
-       let h2 = graph.append_handle("T");
-       let h3 = graph.append_handle("C");
-       let h4 = graph.append_handle("G");
-
-       //Add edges
-       //Path 1
-       graph.create_edge(&Edge(h1,h2));
-       //Path 2
-       graph.create_edge(&Edge(h1,h3));
-       graph.create_edge(&Edge(h3,h2));
-       //Path 3
-       graph.create_edge(&Edge(h3,h4));
-       graph.create_edge(&Edge(h4,h2));
-    
-       let g_bfs = bfs(&graph, &NodeId::from(1));
-
-        assert!(g_bfs.has_edge(h1, h2));
-        assert!(g_bfs.has_edge(h1,h3));
-        assert!(g_bfs.has_edge(h3,h4));
-
-        //These will represent bubbles
-        assert!(!g_bfs.has_edge(h3, h2));
-        assert!(!g_bfs.has_edge(h4, h2));      
-    }
-
-    #[test]
-    fn find_bubbles_1() {
-       let mut graph = HashGraph::new();
-       
-       //Add nodes
-       let h1 = graph.append_handle("A");
-       let h2 = graph.append_handle("T");
-       let h3 = graph.append_handle("C");
-       let h4 = graph.append_handle("G");
-       let h5 = graph.append_handle("AC");
-
-        //Add edges
-        graph.create_edge(&Edge(h1,h2));
-        graph.create_edge(&Edge(h2,h3));
-        graph.create_edge(&Edge(h3,h4));
-        //Loop
-        graph.create_edge(&Edge(h3,h5));
-        graph.create_edge(&Edge(h5,h3));
-
-       let g_bfs = bfs(&graph, &NodeId::from(1));
-
-       let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
-       let mut dist_to_num_nodes: BTreeMap<u64, usize> = BTreeMap::new();
-       for (_, distance) in distances_map.iter() {
-           if !dist_to_num_nodes.contains_key(&distance) {
-               dist_to_num_nodes.insert(*distance, 0);
-           }
-           *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
-       }
-
-       let possible_bubbles_list: Vec<(NodeId, NodeId)> =
-           detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
-
-        let json = graph_to_json(&g_bfs);
-        let buffer = PathBuf::from(format!("./input/bfs_test_1"));
-        json_to_file(&json, &buffer).expect("Cannot write json");
-
-       //println!("Possible bubbles list: {:#?}",possible_bubbles_list);   
-       assert!(possible_bubbles_list.is_empty());
-    }
-
-    #[test]
-    fn find_bubbles_2() {
         let mut graph = HashGraph::new();
-       
+
         //Add nodes
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("T");
@@ -1373,14 +1251,98 @@ mod tests {
 
         //Add edges
         //Path 1
-        graph.create_edge(&Edge(h1,h2));
+        graph.create_edge(&Edge(h1, h2));
         //Path 2
-        graph.create_edge(&Edge(h1,h3));
-        graph.create_edge(&Edge(h3,h2));
+        graph.create_edge(&Edge(h1, h3));
+        graph.create_edge(&Edge(h3, h2));
         //Path 3
-        graph.create_edge(&Edge(h3,h4));
-        graph.create_edge(&Edge(h4,h2));
-    
+        graph.create_edge(&Edge(h3, h4));
+        graph.create_edge(&Edge(h4, h2));
+
+        let paths = find_all_paths_between(&graph, &h1.id(), &h2.id());
+
+        assert!(paths.len() == 3);
+        assert!(paths.contains(&vec![h1.id(), h2.id()]));
+        assert!(paths.contains(&vec![h1.id(), h3.id(), h2.id()]));
+        assert!(paths.contains(&vec![h1.id(), h3.id(), h4.id(), h2.id()]));
+    }
+
+    #[test]
+    fn find_bfs_1() {
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AC");
+
+        //Add edges
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h3, h4));
+        //Loop
+        graph.create_edge(&Edge(h3, h5));
+        graph.create_edge(&Edge(h5, h3));
+
+        let g_bfs = bfs(&graph, &NodeId::from(1));
+
+        //Check g_bfs does not contain the loop
+        assert!(g_bfs.has_edge(h3, h5));
+        assert!(!g_bfs.has_edge(h5, h3));
+    }
+
+    #[test]
+    fn find_bfs_paths_2() {
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+
+        //Add edges
+        //Path 1
+        graph.create_edge(&Edge(h1, h2));
+        //Path 2
+        graph.create_edge(&Edge(h1, h3));
+        graph.create_edge(&Edge(h3, h2));
+        //Path 3
+        graph.create_edge(&Edge(h3, h4));
+        graph.create_edge(&Edge(h4, h2));
+
+        let g_bfs = bfs(&graph, &NodeId::from(1));
+
+        assert!(g_bfs.has_edge(h1, h2));
+        assert!(g_bfs.has_edge(h1, h3));
+        assert!(g_bfs.has_edge(h3, h4));
+
+        //These will represent bubbles
+        assert!(!g_bfs.has_edge(h3, h2));
+        assert!(!g_bfs.has_edge(h4, h2));
+    }
+
+    #[test]
+    fn find_bubbles_1() {
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AC");
+
+        //Add edges
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h3, h4));
+        //Loop
+        graph.create_edge(&Edge(h3, h5));
+        graph.create_edge(&Edge(h5, h3));
+
         let g_bfs = bfs(&graph, &NodeId::from(1));
 
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
@@ -1391,14 +1353,54 @@ mod tests {
             }
             *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
         }
- 
+
         let possible_bubbles_list: Vec<(NodeId, NodeId)> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
- 
-        //println!("Possible bubbles list: {:#?}",possible_bubbles_list);   
- 
-        assert!(possible_bubbles_list.contains(&(NodeId::from(1), NodeId::from(4)))); 
+
+        let json = graph_to_json(&g_bfs);
+        let buffer = PathBuf::from(format!("./input/bfs_test_1"));
+        json_to_file(&json, &buffer).expect("Cannot write json");
+
+        //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
+        assert!(possible_bubbles_list.is_empty());
     }
 
+    #[test]
+    fn find_bubbles_2() {
+        let mut graph = HashGraph::new();
 
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+
+        //Add edges
+        //Path 1
+        graph.create_edge(&Edge(h1, h2));
+        //Path 2
+        graph.create_edge(&Edge(h1, h3));
+        graph.create_edge(&Edge(h3, h2));
+        //Path 3
+        graph.create_edge(&Edge(h3, h4));
+        graph.create_edge(&Edge(h4, h2));
+
+        let g_bfs = bfs(&graph, &NodeId::from(1));
+
+        let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
+        let mut dist_to_num_nodes: BTreeMap<u64, usize> = BTreeMap::new();
+        for (_, distance) in distances_map.iter() {
+            if !dist_to_num_nodes.contains_key(&distance) {
+                dist_to_num_nodes.insert(*distance, 0);
+            }
+            *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
+        }
+
+        let possible_bubbles_list: Vec<(NodeId, NodeId)> =
+            detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
+
+        //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
+
+        assert!(possible_bubbles_list.contains(&(NodeId::from(1), NodeId::from(4))));
+    }
 }
