@@ -261,12 +261,13 @@ fn find_all_paths_between(
     g: &HashGraph,
     start_node_id: &NodeId,
     end_node_id: &NodeId,
+    max_edges: i32
 ) -> Vec<Vec<NodeId>> {
     let mut all_paths_list: Vec<Vec<NodeId>> = Vec::new();
 
     //Put a limit on the maximum amount of edges that can be traversed
     //this should prevent eccessive memory usage
-    let max_edges = 100;
+    //let max_edges = 100;
     let mut curr_edges = 0;
     let mut edges_limit_reached = false;
 
@@ -345,6 +346,7 @@ fn detect_all_variants(
     graph: &HashGraph,
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     verbose: bool,
+    max_edges: i32
 ) -> Vec<Variant> {
     let mut stuff_to_alts_map: HashMap<String, HashSet<String>> = HashMap::new();
 
@@ -376,6 +378,7 @@ fn detect_all_variants(
             node_id_to_path_and_pos_map,
             &mut stuff_to_alts_map,
             verbose,
+            max_edges
         );
 
         //println!("AFTER DETECT");
@@ -437,6 +440,7 @@ fn detect_variants_per_reference(
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     stuff_to_alts_map: &mut HashMap<String, HashSet<String>>,
     verbose: bool,
+    max_edges: i32
 ) {
     //println!("BEFORE GET LAST");
     // Create closure that will be used later
@@ -463,7 +467,7 @@ fn detect_variants_per_reference(
 
         //println!("BEFORE FIND ALL PATHS BETWEEN");
 
-        let all_path_list: Vec<Vec<NodeId>> = find_all_paths_between(&graph, start, end);
+        let all_path_list: Vec<Vec<NodeId>> = find_all_paths_between(&graph, start, end, max_edges);
 
         //println!("AFTER FIND ALL PATHS BETWEEN");
 
@@ -747,7 +751,7 @@ fn json_to_file(json: &JsonValue, path: &PathBuf) -> std::io::Result<()> {
 /// The function that runs the script
 fn main() {
     let matches = App::new("rs-GFAtoVCF")
-        .version("1.0")
+        .version("2.0")
         .author("Francesco Porto <francesco.porto97@gmail.com>")
         .about("Converts GFA to VCF")
         .arg(
@@ -772,15 +776,24 @@ fn main() {
             Arg::with_name("verbose")
                 .short("v")
                 .long("verbose")
-                .help("Sets whether to display debug messages or not"),
+                .help("Shows debug messages during execution"),
         )
         .arg(
             Arg::with_name("json")
                 .short("j")
                 .long("json")
-                .value_name("FILE")
+                .value_name("PATH")
                 .takes_value(true)
                 .help("Sets the path where to store the json of both the starting graph and its bfs-tree"),
+        )
+        .arg(
+            Arg::with_name("max-edges")
+                .short("m")
+                .long("max-edges")
+                .value_name("NUMBER")
+                .takes_value(true)
+                .default_value("100")
+                .help("Sets the maximum amount of edges to be used to find paths between nodes"),
         )
         .get_matches();
 
@@ -792,6 +805,7 @@ fn main() {
         .expect("Could not parse argument --output");
     let verbose = matches.is_present("verbose");
     let json_out = matches.value_of("json");
+    let max_edges = matches.value_of("max-edges").unwrap().parse::<i32>().unwrap();
 
     //let in_path_file = "./input/samplePath3.gfa";
     //let out_path_file = "./input/samplePath3.vcf";
@@ -881,6 +895,7 @@ fn main() {
             &graph,
             &node_id_to_path_and_pos_map,
             verbose,
+            max_edges
         );
 
         //Write variants to file
@@ -1153,6 +1168,7 @@ mod tests {
             &graph,
             &node_id_to_path_and_pos_map,
             false,
+            100
         );
 
         vcf_list
@@ -1233,7 +1249,7 @@ mod tests {
         graph.create_edge(&Edge(h3, h5));
         graph.create_edge(&Edge(h5, h3));
 
-        let paths = find_all_paths_between(&graph, &h1.id(), &h4.id());
+        let paths = find_all_paths_between(&graph, &h1.id(), &h4.id(), 100);
 
         assert!(paths.len() == 1);
         assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h4.id()]));
@@ -1259,7 +1275,7 @@ mod tests {
         graph.create_edge(&Edge(h3, h4));
         graph.create_edge(&Edge(h4, h2));
 
-        let paths = find_all_paths_between(&graph, &h1.id(), &h2.id());
+        let paths = find_all_paths_between(&graph, &h1.id(), &h2.id(), 100);
 
         assert!(paths.len() == 3);
         assert!(paths.contains(&vec![h1.id(), h2.id()]));
