@@ -899,27 +899,31 @@ fn main() {
         );
 
         //Write variants to file
-        write_to_file(&PathBuf::from(out_path_file), &vcf_list).unwrap();
+        write_to_file(&PathBuf::from(out_path_file), &graph, &vcf_list).unwrap();
     } else {
         panic!("Couldn't parse gfa file!");
     }
 }
 
 /// Write variants to file
-fn write_to_file(path: &PathBuf, variants: &[Variant]) -> std::io::Result<()> {
+fn write_to_file(path: &PathBuf, graph : &HashGraph, variants: &[Variant]) -> std::io::Result<()> {
     let mut file = File::create(path).unwrap_or_else(|_| panic!("Error creating file {:?}", path));
 
-    let header = [
-        "##fileformat=VCFv4.2",
-        &format!("##fileDate={}",Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()),
-        "##reference=x.fa",
-        "##reference=y.fa",
-        "##reference=z.fa",
-        "##INFO=<ID=TYPE,Number=A,Type=String,Description=\"Type of each allele (snv, ins, del, mnp, complex)\">",
-        "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">",
-        &["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT","SampleName"].join("\t"),
-    ].join("\n");
-    file.write_all(header.as_bytes())
+    // Get path names
+    let mut paths_list : Vec<String> = graph.paths.iter().map(|(_,value)| value.name.clone()).collect();
+    paths_list.sort();
+    let mut paths_to_fasta : Vec<String> = paths_list.iter().map(|x| format!("##reference={}.fa",x)).collect();
+
+    // Create header
+    let mut header : Vec<String> = Vec::new();
+    header.push("##fileformat=VCFv4.2".to_string());
+    header.push(format!("##fileDate={}",Utc::now().format("%Y-%m-%d %H:%M:%S").to_string()));
+    header.append(&mut paths_to_fasta);
+    header.push("##INFO=<ID=TYPE,Number=A,Type=String,Description=\"Type of each allele (snv, ins, del, mnp, complex)\">".to_string());
+    header.push("##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">".to_string());
+    header.push(["#CHROM","POS","ID","REF","ALT","QUAL","FILTER","INFO","FORMAT","SampleName"].join("\t").to_string());
+
+    file.write_all(header.join("\n").as_bytes())
         .expect("Error writing header");
 
     file.write_all(b"\n").expect("Error writing to file");
