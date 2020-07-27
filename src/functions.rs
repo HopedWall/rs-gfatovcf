@@ -14,36 +14,47 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 //use std::io;
+use log::{info, warn};
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
 pub struct Variant {
     chromosome: String,
-    position: String,
-    id: String,
+    position: i32,
+    id: Option<String>,
     reference: String,
-    alternate: String,
-    quality: String,
-    filter: String,
-    info: String,
-    format: String,
-    sample_name: String,
+    alternate: Option<String>,
+    quality: Option<i32>,
+    filter: Option<String>,
+    info: Option<String>,
+    format: Option<String>,
+    sample_name: Option<String>,
 }
 
 impl Variant {
     pub fn to_vcf_string(&self) -> String {
+
+        //Extract quality from Variant
+        //Note: quality is of type Option<i32>, when it is None "." should be returned
+        let quality_string : String;
+        if self.quality.is_none() {
+            quality_string = ".".to_string();
+        } else {
+            quality_string = self.quality.unwrap().to_string();
+        }
+
         let vcf_string = format!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
             self.chromosome,
             self.position,
-            self.id,
+            self.id.clone().unwrap_or(".".to_string()),
             self.reference,
-            self.alternate,
-            self.quality,
-            self.filter,
-            self.info,
-            self.format,
-            self.sample_name
+            self.alternate.clone().unwrap_or(".".to_string()),
+            quality_string,
+            self.filter.clone().unwrap_or(".".to_string()),
+            self.info.clone().unwrap_or(".".to_string()),
+            self.format.clone().unwrap_or(".".to_string()),
+            self.sample_name.clone().unwrap_or(".".to_string())
         );
         
         vcf_string
@@ -102,10 +113,12 @@ pub fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     q.push_back(*node_id);
 
     while !q.is_empty() {
-        //println!("Queue is {:#?}",q);
+        info!("Queue is {:#?}",q);
 
         let curr_node = q.pop_front().unwrap();
         let current_handle = Handle::pack(curr_node, false);
+
+        info!("Curr node is {:#?}",curr_node);
 
         //Check if curr_node is already in g_bfs
         if !g_bfs.has_node(curr_node) {
@@ -164,7 +177,10 @@ pub fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<Node
     q.push_back(*starting_node_id);
     visited_node_id_set.insert(*starting_node_id);
     while let Some(current_node_id) = q.pop_front() {
-        //let current_node_id = q.pop_front().unwrap();
+
+        info!("Queue is {:#?}",q);
+        info!("Curr node id is {:#?}",current_node_id);
+
         let current_node = Handle::pack(current_node_id, false);
         ordered_node_id_list.push(current_node_id);
 
@@ -277,7 +293,9 @@ pub fn find_all_paths_between(
 
     //Put a limit on the maximum amount of edges that can be traversed
     //this should prevent eccessive memory usage
-    //let max_edges = 100;
+    
+    info!("Max edges is {:#?}",max_edges);
+
     let mut curr_edges = 0;
     let mut edges_limit_reached = false;
 
@@ -289,8 +307,9 @@ pub fn find_all_paths_between(
     all_paths_list.push(vec![*start_node_id]);
 
     while !q.is_empty() {
-        //println!("All paths is {:#?}",all_paths_list);
-        //println!("Q is: {:#?}",q);
+
+        info!("All paths is {:#?}",all_paths_list);
+        info!("Q is: {:#?}",q);
 
         let curr_node = q.pop_front().unwrap();
 
@@ -308,7 +327,7 @@ pub fn find_all_paths_between(
         //Only keep those which don't
         all_paths_list.retain(|x| !x.ends_with(&[curr_node]));
 
-        //println!("Curr_paths_list: {:#?}",curr_paths_list);
+        info!("Curr_paths_list: {:#?}",curr_paths_list);
         //io::stdin().read_line(&mut String::new());
 
         for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
@@ -334,7 +353,7 @@ pub fn find_all_paths_between(
             break;
         }
 
-        //println!("All_paths_list: {:#?}",all_paths_list);
+        info!("All_paths_list: {:#?}",all_paths_list);
         //io::stdin().read_line(&mut String::new());
     }
 
@@ -342,7 +361,7 @@ pub fn find_all_paths_between(
     //start_node_id does not have to be checked
     all_paths_list.retain(|x| x.ends_with(&[*end_node_id]));
 
-    //println!("All paths between {} and {} are: {:#?}",start_node_id, end_node_id, all_paths_list);
+    info!("All paths between {} and {} are: {:#?}",start_node_id, end_node_id, all_paths_list);
 
     //io::stdin().read_line(&mut String::new());
 
@@ -378,7 +397,7 @@ pub fn detect_all_variants(
         //     ref_path.push(x.parse::<u64>().unwrap());
         // }
 
-        //println!("BEFORE DETECT");
+        info!("BEFORE DETECT");
 
         detect_variants_per_reference(
             &current_ref,
@@ -391,7 +410,7 @@ pub fn detect_all_variants(
             max_edges
         );
 
-        //println!("AFTER DETECT");
+        info!("AFTER DETECT");
     }
 
     // Convert stuff_to_alts_map to a more readable format
@@ -411,19 +430,20 @@ pub fn detect_all_variants(
             .unzip();
 
         let alts = alt_list.join(",");
-        let types = type_set.join(";TYPE=");
+        let mut types = "TYPE=".to_string();
+        types.push_str(&type_set.join(";TYPE="));
 
         let v = Variant {
             chromosome: chrom.to_string(),
-            position: pos.to_string(),
-            id: ".".to_string(),
+            position: pos.to_string().parse::<i32>().unwrap(),
+            id: None,
             reference: refr.to_string(),
-            alternate: alts,
-            quality: ".".to_string(),
-            filter: ".".to_string(),
-            info: format!("TYPE={}", types),
-            format: "GT".to_string(),
-            sample_name: "0|1".to_string(),
+            alternate: Some(alts),
+            quality: None,
+            filter: None,
+            info: Some(types),
+            format: Some("GT".to_string()),
+            sample_name: Some("0|1".to_string()),
         };
 
         vcf_list.push(v);
@@ -433,9 +453,7 @@ pub fn detect_all_variants(
     vcf_list.sort_by(|a, b| match a.chromosome.cmp(&b.chromosome) {
         Ordering::Equal => a
             .position
-            .parse::<i32>()
-            .unwrap()
-            .cmp(&b.position.parse::<i32>().unwrap()),
+            .cmp(&b.position),
         other => other,
     });
 
@@ -452,7 +470,8 @@ fn detect_variants_per_reference(
     verbose: bool,
     max_edges: i32
 ) {
-    //println!("BEFORE GET LAST");
+    info!("BEFORE GET LAST");
+
     // Create closure that will be used later
     let get_last = |prec_node_seq_ref: &str, node_seq_ref| {
         let mut last = prec_node_seq_ref[prec_node_seq_ref.len() - 1..].to_string();
@@ -467,7 +486,7 @@ fn detect_variants_per_reference(
             println!("Bubble [{},{}]", start, end);
         }
 
-        //println!("BEFORE FIND START");
+        info!("BEFORE FIND START");
 
         let start_node_index_in_ref_path: usize;
         match ref_path.iter().position(|&r| NodeId::from(r) == *start) {
@@ -475,13 +494,13 @@ fn detect_variants_per_reference(
             Some(r) => start_node_index_in_ref_path = r,
         };
 
-        //println!("BEFORE FIND ALL PATHS BETWEEN");
+        info!("BEFORE FIND ALL PATHS BETWEEN");
 
         let all_path_list: Vec<Vec<NodeId>> = find_all_paths_between(&graph, start, end, max_edges);
 
-        //println!("AFTER FIND ALL PATHS BETWEEN");
+        info!("AFTER FIND ALL PATHS BETWEEN");
 
-        //println!("All paths list: {:?}",all_path_list);
+        info!("All paths list: {:?}",all_path_list);
         for path in &all_path_list {
             if verbose {
                 println!("\tPath: {:?}", path);

@@ -9,8 +9,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 extern crate clap;
 use clap::{App, Arg};
-extern crate chrono;
-//use std::io;
 
 // Import functions
 mod functions;

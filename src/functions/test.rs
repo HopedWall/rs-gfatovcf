@@ -242,45 +242,45 @@ fn test_variant_detection() {
     //x	9	.	G	A	.	.	TYPE=snv	GT	0|1
     let snv = Variant {
         chromosome: "x".to_string(),
-        position: "9".to_string(),
-        id: ".".to_string(),
+        position: 9,
+        id: None,
         reference: "G".to_string(),
-        alternate: "A".to_string(),
-        quality: ".".to_string(),
-        filter: ".".to_string(),
-        info: format!("TYPE={}", "snv"),
-        format: "GT".to_string(),
-        sample_name: "0|1".to_string(),
+        alternate: Some("A".to_string()),
+        quality: None,
+        filter: None,
+        info: Some("TYPE=snv".to_string()),
+        format: Some("GT".to_string()),
+        sample_name: Some("0|1".to_string()),
     };
     assert!(variants_found.contains(&snv));
 
     //x	18	.	T	TAA	.	.	TYPE=ins	GT	0|1
     let ins = Variant {
         chromosome: "x".to_string(),
-        position: "18".to_string(),
-        id: ".".to_string(),
+        position: 18,
+        id: None,
         reference: "T".to_string(),
-        alternate: "TAA".to_string(),
-        quality: ".".to_string(),
-        filter: ".".to_string(),
-        info: format!("TYPE={}", "ins"),
-        format: "GT".to_string(),
-        sample_name: "0|1".to_string(),
+        alternate: Some("TAA".to_string()),
+        quality: None,
+        filter: None,
+        info: Some("TYPE=ins".to_string()),
+        format: Some("GT".to_string()),
+        sample_name: Some("0|1".to_string()),
     };
     assert!(variants_found.contains(&ins));
 
     //y	18	.	TAA	T	.	.	TYPE=del	GT	0|1
     let del = Variant {
         chromosome: "y".to_string(),
-        position: "18".to_string(),
-        id: ".".to_string(),
+        position: 18,
+        id: None,
         reference: "TAA".to_string(),
-        alternate: "T".to_string(),
-        quality: ".".to_string(),
-        filter: ".".to_string(),
-        info: format!("TYPE={}", "del"),
-        format: "GT".to_string(),
-        sample_name: "0|1".to_string(),
+        alternate: Some("T".to_string()),
+        quality: None,
+        filter: None,
+        info: Some("TYPE=del".to_string()),
+        format: Some("GT".to_string()),
+        sample_name: Some("0|1".to_string()),
     };
     assert!(variants_found.contains(&del));
 }
