@@ -13,7 +13,14 @@ use crate::functions::Variant;
 pub fn write_variants_to_file(path: &PathBuf, paths_list : &mut Vec<String>, variants: &[Variant]) -> std::io::Result<()> {
     let mut file = File::create(path).unwrap_or_else(|_| panic!("Error creating file {:?}", path));
 
-    let mut paths_to_fasta : Vec<String> = paths_list.iter().map(|x| format!("##reference={}.fa",x)).collect();
+    let mut paths_to_fasta : Vec<String> = paths_list.iter()
+                                    .map(|x| {
+                                        let mut var : String = x.clone();
+                                        if !var.ends_with(".fa") && !var.ends_with(".fasta") {
+                                            var.push_str(".fa");
+                                        }
+                                        format!("##reference={}",var)
+                                    }).collect();
     // Create header
     let mut header : Vec<String> = Vec::new();
     header.push("##fileformat=VCFv4.2".to_string());
