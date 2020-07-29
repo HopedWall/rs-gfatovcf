@@ -1,16 +1,16 @@
 use handlegraph::handle::{Direction, Handle, NodeId};
+use handlegraph::handlegraph::handle_edges_iter;
 use handlegraph::handlegraph::HandleGraph;
 use handlegraph::hashgraph::HashGraph;
-use handlegraph::handlegraph::{handle_edges_iter};
 use std::collections::BTreeMap; //like hashmap but sorted
 use std::collections::HashMap;
 extern crate chrono;
+use crate::bubble_detection::Bubble;
 use log::info;
 use std::cmp;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::VecDeque;
-use crate::bubble_detection::Bubble;
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
@@ -65,14 +65,27 @@ pub fn detect_all_variants(
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     verbose: bool,
     max_edges: i32,
+    paths: Vec<String>,
 ) -> Vec<Variant> {
     let mut stuff_to_alts_map: HashMap<String, HashSet<String>> = HashMap::new();
 
-    // Taking each known path as reference, explore all bubbles in order to find variants;
+    let reference_paths: Vec<String>;
+    if paths.is_empty() {
+        // Consider all known reference paths
+        reference_paths = path_to_steps_map
+            .keys()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>();
+    } else {
+        // Only consider specific paths if the -p option has been provided
+        reference_paths = paths;
+    }
+
+    // For each reference path, explore all bubbles in order to find variants;
     // these will be stored in stuff_to_alts_map
-    for current_ref in path_to_steps_map.keys() {
+    for current_ref in reference_paths {
         // Obtain all steps for current_ref
-        let ref_path: Vec<u64> = path_to_steps_map[current_ref]
+        let ref_path: Vec<u64> = path_to_steps_map[&current_ref]
             .iter()
             .map(|x| x.parse::<u64>().unwrap())
             .collect();
@@ -165,7 +178,6 @@ fn detect_variants_per_reference(
 
     // Check all bubbles
     for bubble in possible_bubbles_list {
-
         let start = bubble.start;
         let end = bubble.end;
 
@@ -184,7 +196,8 @@ fn detect_variants_per_reference(
 
         info!("BEFORE FIND ALL PATHS BETWEEN");
 
-        let all_path_list: Vec<Vec<NodeId>> = find_all_paths_between(&graph, &start, &end, max_edges);
+        let all_path_list: Vec<Vec<NodeId>> =
+            find_all_paths_between(&graph, &start, &end, max_edges);
 
         info!("AFTER FIND ALL PATHS BETWEEN");
 
@@ -487,11 +500,11 @@ pub fn find_all_paths_between(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use handlegraph::hashgraph::HashGraph;
-    use std::path::PathBuf;
-    use handlegraph::mutablehandlegraph::*;
-    use handlegraph::handle::{Edge, NodeId};
     use crate::bubble_detection::*;
+    use handlegraph::handle::{Edge, NodeId};
+    use handlegraph::hashgraph::HashGraph;
+    use handlegraph::mutablehandlegraph::*;
+    use std::path::PathBuf;
 
     //Used in other tests
     fn read_test_gfa() -> HashGraph {
@@ -522,7 +535,8 @@ mod tests {
             &graph,
             &node_id_to_path_and_pos_map,
             false,
-            100
+            100,
+            Vec::new(),
         );
 
         vcf_list
@@ -532,12 +546,12 @@ mod tests {
     fn test_variant_detection() {
         let graph = read_test_gfa();
         let variants_found = run_whole_script(graph);
-    
+
         //Check that all variants have been found
         assert_eq!(variants_found.len(), 21);
-    
+
         //Check one variant per type
-    
+
         //x	9	.	G	A	.	.	TYPE=snv	GT	0|1
         let snv = Variant {
             chromosome: "x".to_string(),
@@ -552,7 +566,7 @@ mod tests {
             sample_name: Some("0|1".to_string()),
         };
         assert!(variants_found.contains(&snv));
-    
+
         //x	18	.	T	TAA	.	.	TYPE=ins	GT	0|1
         let ins = Variant {
             chromosome: "x".to_string(),
@@ -567,7 +581,7 @@ mod tests {
             sample_name: Some("0|1".to_string()),
         };
         assert!(variants_found.contains(&ins));
-    
+
         //y	18	.	TAA	T	.	.	TYPE=del	GT	0|1
         let del = Variant {
             chromosome: "y".to_string(),
@@ -583,18 +597,18 @@ mod tests {
         };
         assert!(variants_found.contains(&del));
     }
-    
+
     #[test]
     fn find_all_paths_1() {
         let mut graph = HashGraph::new();
-    
+
         //Add nodes
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("T");
         let h3 = graph.append_handle("C");
         let h4 = graph.append_handle("G");
         let h5 = graph.append_handle("AC");
-    
+
         //Add edges
         graph.create_edge(&Edge(h1, h2));
         graph.create_edge(&Edge(h2, h3));
@@ -602,23 +616,23 @@ mod tests {
         //Loop
         graph.create_edge(&Edge(h3, h5));
         graph.create_edge(&Edge(h5, h3));
-    
+
         let paths = find_all_paths_between(&graph, &h1.id(), &h4.id(), 100);
-    
+
         assert!(paths.len() == 1);
         assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h4.id()]));
     }
-    
+
     #[test]
     fn find_all_paths_2() {
         let mut graph = HashGraph::new();
-    
+
         //Add nodes
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("T");
         let h3 = graph.append_handle("C");
         let h4 = graph.append_handle("G");
-    
+
         //Add edges
         //Path 1
         graph.create_edge(&Edge(h1, h2));
@@ -628,13 +642,12 @@ mod tests {
         //Path 3
         graph.create_edge(&Edge(h3, h4));
         graph.create_edge(&Edge(h4, h2));
-    
+
         let paths = find_all_paths_between(&graph, &h1.id(), &h2.id(), 100);
-    
+
         assert!(paths.len() == 3);
         assert!(paths.contains(&vec![h1.id(), h2.id()]));
         assert!(paths.contains(&vec![h1.id(), h3.id(), h2.id()]));
         assert!(paths.contains(&vec![h1.id(), h3.id(), h4.id(), h2.id()]));
     }
-    
 }

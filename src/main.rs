@@ -69,6 +69,14 @@ fn main() {
                 .default_value("100")
                 .help("Sets the maximum amount of edges to be used to find paths between nodes"),
         )
+        .arg(
+            Arg::with_name("reference-paths")
+                .short("p")
+                .long("reference-paths")
+                .value_name("LIST")
+                .takes_value(true)
+                .help("Sets the reference paths to be used during bubble detection (comma separated)"),
+        )
         .get_matches();
 
     let in_path_file = matches
@@ -84,6 +92,7 @@ fn main() {
         .unwrap()
         .parse::<i32>()
         .unwrap();
+    let reference_paths = matches.value_of("reference-paths");
 
     if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path_file)) {
         let graph = HashGraph::from_gfa(&gfa);
@@ -165,6 +174,16 @@ fn main() {
             println!("Path to sequence: {:?}", path_to_sequence_map);
         }
 
+        //Obtain paths from input
+        let mut paths: Vec<String> = Vec::new();
+        if reference_paths.is_some() {
+            paths = reference_paths
+                .unwrap()
+                .split(",")
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>();
+        }
+
         // Obtains the list of Variants in the graph
         let vcf_list: Vec<Variant> = detect_all_variants(
             &path_to_steps_map,
@@ -173,6 +192,7 @@ fn main() {
             &node_id_to_path_and_pos_map,
             verbose,
             max_edges,
+            paths,
         );
 
         // Get path names

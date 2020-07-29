@@ -210,8 +210,8 @@ pub fn detect_bubbles(
     let mut open_bubble = false;
 
     let mut curr_bubble = Bubble {
-        start: NodeId::from(0), 
-        end: NodeId::from(0)
+        start: NodeId::from(0),
+        end: NodeId::from(0),
     };
 
     for node_id in ordered_node_id_list {
@@ -230,8 +230,8 @@ pub fn detect_bubbles(
                     curr_bubble.end = *node_id;
                     possible_bubbles_list.push(curr_bubble);
                     curr_bubble = Bubble {
-                        start: NodeId::from(0), 
-                        end: NodeId::from(0)
+                        start: NodeId::from(0),
+                        end: NodeId::from(0),
                     };
                 }
 
@@ -247,8 +247,8 @@ pub fn detect_bubbles(
 
                     // Reset curr_bubble for future bubbles
                     curr_bubble = Bubble {
-                        start: NodeId::from(0), 
-                        end: NodeId::from(0)
+                        start: NodeId::from(0),
+                        end: NodeId::from(0),
                     };
                     open_bubble = false;
                 }
@@ -302,7 +302,6 @@ mod tests {
     use handlegraph::handlegraph::HandleGraph;
     use handlegraph::hashgraph::HashGraph;
     use std::path::PathBuf;
-
 
     //Used in other tests
     fn read_test_gfa() -> HashGraph {
@@ -495,10 +494,22 @@ mod tests {
 
         //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
 
-        let bubble_1 = Bubble {start: NodeId::from(1), end: NodeId::from(6)};
-        let bubble_2 = Bubble {start: NodeId::from(6), end: NodeId::from(9)};
-        let bubble_3 = Bubble {start: NodeId::from(9), end: NodeId::from(16)};
-        let bubble_4 = Bubble {start: NodeId::from(16), end: NodeId::from(19)};
+        let bubble_1 = Bubble {
+            start: NodeId::from(1),
+            end: NodeId::from(6),
+        };
+        let bubble_2 = Bubble {
+            start: NodeId::from(6),
+            end: NodeId::from(9),
+        };
+        let bubble_3 = Bubble {
+            start: NodeId::from(9),
+            end: NodeId::from(16),
+        };
+        let bubble_4 = Bubble {
+            start: NodeId::from(16),
+            end: NodeId::from(19),
+        };
 
         assert!(possible_bubbles_list.contains(&bubble_1));
         assert!(possible_bubbles_list.contains(&bubble_2));
@@ -509,14 +520,14 @@ mod tests {
     #[test]
     fn find_bfs_1() {
         let mut graph = HashGraph::new();
-    
+
         //Add nodes
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("T");
         let h3 = graph.append_handle("C");
         let h4 = graph.append_handle("G");
         let h5 = graph.append_handle("AC");
-    
+
         //Add edges
         graph.create_edge(&Edge(h1, h2));
         graph.create_edge(&Edge(h2, h3));
@@ -524,24 +535,24 @@ mod tests {
         //Loop
         graph.create_edge(&Edge(h3, h5));
         graph.create_edge(&Edge(h5, h3));
-    
+
         let g_bfs = bfs(&graph, &NodeId::from(1));
-    
+
         //Check g_bfs does not contain the loop
         assert!(g_bfs.has_edge(h3, h5));
         assert!(!g_bfs.has_edge(h5, h3));
     }
-    
+
     #[test]
     fn find_bfs_paths_2() {
         let mut graph = HashGraph::new();
-    
+
         //Add nodes
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("T");
         let h3 = graph.append_handle("C");
         let h4 = graph.append_handle("G");
-    
+
         //Add edges
         //Path 1
         graph.create_edge(&Edge(h1, h2));
@@ -551,29 +562,29 @@ mod tests {
         //Path 3
         graph.create_edge(&Edge(h3, h4));
         graph.create_edge(&Edge(h4, h2));
-    
+
         let g_bfs = bfs(&graph, &NodeId::from(1));
-    
+
         assert!(g_bfs.has_edge(h1, h2));
         assert!(g_bfs.has_edge(h1, h3));
         assert!(g_bfs.has_edge(h3, h4));
-    
+
         //These will represent bubbles
         assert!(!g_bfs.has_edge(h3, h2));
         assert!(!g_bfs.has_edge(h4, h2));
     }
-    
+
     #[test]
     fn find_bubbles_1() {
         let mut graph = HashGraph::new();
-    
+
         //Add nodes
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("T");
         let h3 = graph.append_handle("C");
         let h4 = graph.append_handle("G");
         let h5 = graph.append_handle("AC");
-    
+
         //Add edges
         graph.create_edge(&Edge(h1, h2));
         graph.create_edge(&Edge(h2, h3));
@@ -581,9 +592,9 @@ mod tests {
         //Loop
         graph.create_edge(&Edge(h3, h5));
         graph.create_edge(&Edge(h5, h3));
-    
+
         let g_bfs = bfs(&graph, &NodeId::from(1));
-    
+
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
         let mut dist_to_num_nodes: BTreeMap<u64, usize> = BTreeMap::new();
         for (_, distance) in distances_map.iter() {
@@ -592,24 +603,24 @@ mod tests {
             }
             *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
         }
-    
+
         let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
-    
+
         //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
         assert!(possible_bubbles_list.is_empty());
     }
-    
+
     #[test]
     fn find_bubbles_2() {
         let mut graph = HashGraph::new();
-    
+
         //Add nodes
         let h1 = graph.append_handle("A");
         let h2 = graph.append_handle("T");
         let h3 = graph.append_handle("C");
         let h4 = graph.append_handle("G");
-    
+
         //Add edges
         //Path 1
         graph.create_edge(&Edge(h1, h2));
@@ -619,9 +630,9 @@ mod tests {
         //Path 3
         graph.create_edge(&Edge(h3, h4));
         graph.create_edge(&Edge(h4, h2));
-    
+
         let g_bfs = bfs(&graph, &NodeId::from(1));
-    
+
         let (distances_map, ordered_node_id_list) = bfs_distances(&g_bfs, &NodeId::from(1));
         let mut dist_to_num_nodes: BTreeMap<u64, usize> = BTreeMap::new();
         for (_, distance) in distances_map.iter() {
@@ -630,14 +641,16 @@ mod tests {
             }
             *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
         }
-    
+
         let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
-    
+
         //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
-    
-        let bubble = Bubble {start: NodeId::from(1), end: NodeId::from(4)};
+
+        let bubble = Bubble {
+            start: NodeId::from(1),
+            end: NodeId::from(4),
+        };
         assert!(possible_bubbles_list.contains(&bubble));
     }
-
 }
