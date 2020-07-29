@@ -5,7 +5,7 @@ use std::io::BufWriter;
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::functions::Variant;
+use crate::variant_identification::Variant;
 use handlegraph::handlegraph::{handles_iter, HandleGraph};
 use handlegraph::hashgraph::HashGraph;
 

@@ -10,9 +10,13 @@ use std::path::PathBuf;
 extern crate clap;
 use clap::{App, Arg};
 
-// Import functions
-mod functions;
-use crate::functions::*;
+// Import bubble detection functions
+mod bubble_detection;
+use crate::bubble_detection::*;
+
+// Import variant identification functions
+mod variant_identification;
+use crate::variant_identification::*;
 
 //Import fileIO
 mod file_io;
