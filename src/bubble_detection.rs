@@ -13,6 +13,14 @@ use log::info;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
+/// A struct that holds Bubbles. A bubble consists of multiple directed unipaths
+/// (a path in which all internal vertices are of degree 2) between two vertices.
+#[derive(Debug, PartialEq)]
+pub struct Bubble {
+    pub start: NodeId,
+    pub end: NodeId,
+}
+
 /// Returns a step as a String with NodeId and Orientation
 fn process_step(h: &Handle) -> String {
     let orient = if h.is_reverse() {
@@ -192,18 +200,20 @@ pub fn get_path_to_sequence(
     path_to_sequence_map
 }
 
-/// Detects bubbles in a variation graph. A bubble consists of multiple directed unipaths
-/// (a path in which all internal vertices are of degree 2) between two vertices. In the
-/// context of this program, bubbles are represented as pairs (Start_Node_Id, End_Node_Id)
+/// Detects bubbles in a variation graph.
 pub fn detect_bubbles(
     distances_map: &BTreeMap<NodeId, u64>,
     ordered_node_id_list: &[NodeId],
     dist_to_num_nodes: &BTreeMap<u64, usize>,
-) -> Vec<(NodeId, NodeId)> {
-    let mut possible_bubbles_list: Vec<(NodeId, NodeId)> = Vec::new();
+) -> Vec<Bubble> {
+    let mut possible_bubbles_list: Vec<Bubble> = Vec::new();
     let mut open_bubble = false;
 
-    let mut curr_bubble: (NodeId, NodeId) = (NodeId::from(0), NodeId::from(0));
+    let mut curr_bubble = Bubble {
+        start: NodeId::from(0), 
+        end: NodeId::from(0)
+    };
+
     for node_id in ordered_node_id_list {
         // Get distance of current NodeId from root in g_bfs
         let node_distance = distances_map[&node_id];
@@ -217,23 +227,29 @@ pub fn detect_bubbles(
             {
                 // Close current bubble if one is already open
                 if open_bubble {
-                    curr_bubble.1 = *node_id;
+                    curr_bubble.end = *node_id;
                     possible_bubbles_list.push(curr_bubble);
-                    curr_bubble = (NodeId::from(0), NodeId::from(0));
+                    curr_bubble = Bubble {
+                        start: NodeId::from(0), 
+                        end: NodeId::from(0)
+                    };
                 }
 
                 // Start new bubble
-                curr_bubble.0 = *node_id;
+                curr_bubble.start = *node_id;
                 open_bubble = true;
             } else {
                 // If a bubble is open
                 if open_bubble {
                     // Close bubble
-                    curr_bubble.1 = *node_id;
+                    curr_bubble.end = *node_id;
                     possible_bubbles_list.push(curr_bubble);
 
                     // Reset curr_bubble for future bubbles
-                    curr_bubble = (NodeId::from(0), NodeId::from(0));
+                    curr_bubble = Bubble {
+                        start: NodeId::from(0), 
+                        end: NodeId::from(0)
+                    };
                     open_bubble = false;
                 }
             }
@@ -474,15 +490,20 @@ mod tests {
             *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
         }
 
-        let possible_bubbles_list: Vec<(NodeId, NodeId)> =
+        let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
         //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
 
-        assert!(possible_bubbles_list.contains(&(NodeId::from(1), NodeId::from(6))));
-        assert!(possible_bubbles_list.contains(&(NodeId::from(6), NodeId::from(9))));
-        assert!(possible_bubbles_list.contains(&(NodeId::from(9), NodeId::from(16))));
-        assert!(possible_bubbles_list.contains(&(NodeId::from(16), NodeId::from(19))));
+        let bubble_1 = Bubble {start: NodeId::from(1), end: NodeId::from(6)};
+        let bubble_2 = Bubble {start: NodeId::from(6), end: NodeId::from(9)};
+        let bubble_3 = Bubble {start: NodeId::from(9), end: NodeId::from(16)};
+        let bubble_4 = Bubble {start: NodeId::from(16), end: NodeId::from(19)};
+
+        assert!(possible_bubbles_list.contains(&bubble_1));
+        assert!(possible_bubbles_list.contains(&bubble_2));
+        assert!(possible_bubbles_list.contains(&bubble_3));
+        assert!(possible_bubbles_list.contains(&bubble_4));
     }
 
     #[test]
@@ -572,7 +593,7 @@ mod tests {
             *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
         }
     
-        let possible_bubbles_list: Vec<(NodeId, NodeId)> =
+        let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
     
         //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
@@ -610,12 +631,13 @@ mod tests {
             *dist_to_num_nodes.get_mut(distance).unwrap() += 1;
         }
     
-        let possible_bubbles_list: Vec<(NodeId, NodeId)> =
+        let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
     
         //println!("Possible bubbles list: {:#?}",possible_bubbles_list);
     
-        assert!(possible_bubbles_list.contains(&(NodeId::from(1), NodeId::from(4))));
+        let bubble = Bubble {start: NodeId::from(1), end: NodeId::from(4)};
+        assert!(possible_bubbles_list.contains(&bubble));
     }
 
 }

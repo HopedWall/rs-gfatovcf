@@ -151,7 +151,7 @@ fn main() {
         }
 
         // Obtains a list of bubbles, each Bubble is represented as (Start_Node_Id, End_Node_Id)
-        let possible_bubbles_list: Vec<(NodeId, NodeId)> =
+        let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
         if verbose {

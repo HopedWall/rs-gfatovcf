@@ -10,6 +10,7 @@ use std::cmp;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::VecDeque;
+use crate::bubble_detection::Bubble;
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
@@ -59,7 +60,7 @@ impl Variant {
 /// Detects variants from a list of bubbles
 pub fn detect_all_variants(
     path_to_steps_map: &HashMap<String, Vec<String>>,
-    possible_bubbles_list: &[(NodeId, NodeId)],
+    possible_bubbles_list: &[Bubble],
     graph: &HashGraph,
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     verbose: bool,
@@ -146,7 +147,7 @@ pub fn detect_all_variants(
 fn detect_variants_per_reference(
     current_ref: &str,
     ref_path: &[u64],
-    possible_bubbles_list: &[(NodeId, NodeId)],
+    possible_bubbles_list: &[Bubble],
     graph: &HashGraph,
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     stuff_to_alts_map: &mut HashMap<String, HashSet<String>>,
@@ -163,7 +164,11 @@ fn detect_variants_per_reference(
     };
 
     // Check all bubbles
-    for (start, end) in possible_bubbles_list {
+    for bubble in possible_bubbles_list {
+
+        let start = bubble.start;
+        let end = bubble.end;
+
         if verbose {
             println!("ref_path: {:?}", ref_path);
             println!("Bubble [{},{}]", start, end);
@@ -172,14 +177,14 @@ fn detect_variants_per_reference(
         info!("BEFORE FIND START");
 
         let start_node_index_in_ref_path: usize;
-        match ref_path.iter().position(|&r| NodeId::from(r) == *start) {
+        match ref_path.iter().position(|&r| NodeId::from(r) == start) {
             None => continue, //ignore, start not found in ref path
             Some(r) => start_node_index_in_ref_path = r,
         };
 
         info!("BEFORE FIND ALL PATHS BETWEEN");
 
-        let all_path_list: Vec<Vec<NodeId>> = find_all_paths_between(&graph, start, end, max_edges);
+        let all_path_list: Vec<Vec<NodeId>> = find_all_paths_between(&graph, &start, &end, max_edges);
 
         info!("AFTER FIND ALL PATHS BETWEEN");
 
@@ -191,7 +196,7 @@ fn detect_variants_per_reference(
 
             //println!("INSIDE FOR LOOP");
 
-            let mut pos_ref = node_id_to_path_and_pos_map[start][current_ref] + 1;
+            let mut pos_ref = node_id_to_path_and_pos_map[&start][current_ref] + 1;
             let mut pos_path = pos_ref;
 
             let max_index = cmp::min(path.len(), ref_path.len());
@@ -507,7 +512,7 @@ mod tests {
         let dist_to_num_nodes: BTreeMap<u64, usize> = get_dist_to_num_nodes(&distances_map);
 
         //Find the bubbles
-        let possible_bubbles_list: Vec<(NodeId, NodeId)> =
+        let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
         //Find variants from bubbles
