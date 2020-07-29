@@ -9,12 +9,11 @@ use handlegraph::pathgraph::PathHandleGraph;
 use std::collections::BTreeMap; //like hashmap but sorted
 use std::collections::HashMap;
 extern crate chrono;
+use log::info;
 use std::cmp;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::collections::VecDeque;
-//use std::io;
-use log::{info, warn};
 
 /// A struct that holds Variants, as defined in the VCF format
 #[derive(PartialEq)]
@@ -32,11 +31,11 @@ pub struct Variant {
 }
 
 impl Variant {
+    // Returns a Variant as a line of a VCF file
     pub fn to_vcf_string(&self) -> String {
-
-        //Extract quality from Variant
-        //Note: quality is of type Option<i32>, when it is None "." should be returned
-        let quality_string : String;
+        // Extract quality from Variant
+        // Note: quality is of type Option<i32>, when it is None "." should be returned
+        let quality_string: String;
         if self.quality.is_none() {
             quality_string = ".".to_string();
         } else {
@@ -56,10 +55,9 @@ impl Variant {
             self.format.clone().unwrap_or(".".to_string()),
             self.sample_name.clone().unwrap_or(".".to_string())
         );
-        
+
         vcf_string
     }
-
 }
 
 /// Returns a step as a String with NodeId and Orientation
@@ -102,42 +100,50 @@ pub fn paths_to_steps(graph: &HashGraph) -> HashMap<String, Vec<String>> {
     path_to_steps_map
 }
 
-/// Wrapper function for bfs_new
+/// Performs a BFS over a given HashGraph, and returns the resulting bfs-tree
+/// See section 'Example' from https://en.wikipedia.org/wiki/Breadth-first_search
+/// for more details
 pub fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
+    // The resulting tree will still be stored inside a HashGraph for the
+    // sake of simplicity; note that this is in fact a tree, i.e.
+    // it has a root, there are no loops, etc.
     let mut g_bfs = HashGraph::new();
 
-    //Create queue
+    // Create queue
+    // NOTE: this is a Queue based implementation, this was done
+    // in order not to get a stack overflow (the previous recursion-based
+    // version was often experiencing this kind of issue)
     let mut q: VecDeque<NodeId> = VecDeque::new();
 
-    //Insert first value
+    // Insert first value
     q.push_back(*node_id);
 
     while !q.is_empty() {
-        info!("Queue is {:#?}",q);
+        info!("Queue is {:#?}", q);
 
         let curr_node = q.pop_front().unwrap();
         let current_handle = Handle::pack(curr_node, false);
 
-        info!("Curr node is {:#?}",curr_node);
+        info!("Curr node is {:#?}", curr_node);
 
-        //Check if curr_node is already in g_bfs
+        // Check if curr_node is already in g_bfs
         if !g_bfs.has_node(curr_node) {
             g_bfs.create_handle(g.sequence(current_handle), curr_node);
         }
 
         for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
             if !g_bfs.has_node(neighbor.id()) {
-                //Create handle in g_bfs
+                // Create handle in g_bfs
                 g_bfs.create_handle(g.sequence(neighbor), neighbor.id());
 
-                //Add neighbor id to queue
+                // Add neighbor id to queue
                 q.push_back(neighbor.id());
 
-                //Create edge from curr_handle to new node in g_bfs
+                // Create edge from curr_handle to new node in g_bfs
                 let edge = Edge::edge_handle(current_handle, neighbor);
                 g_bfs.create_edge(&edge);
 
-                //Add new node to queue
+                // Add new node to queue
                 q.push_back(neighbor.id());
             }
         }
@@ -146,21 +152,21 @@ pub fn bfs(g: &HashGraph, node_id: &NodeId) -> HashGraph {
     g_bfs
 }
 
-/// Prints an edge of a given HashGraph
-fn show_edge(a: &Handle, b: &Handle) {
-    println!("{} --> {}", a.id(), b.id());
-}
-/// Prints all nodes and edges of a given HashGraph
+/// Prints a node of a given HashGraph, and all of its edges
 pub fn display_node_edges(g_dfs: &HashGraph, h: &Handle) {
     println!("node {}", h.id());
 
+    // Prints all the outgoing edges from the current node
     for n in handle_edges_iter(g_dfs, *h, Direction::Right) {
-        show_edge(h, &n);
+        println!("{} --> {}", h.id(), n.id());
     }
 }
 
 /// Finds the distance of each node from a given root
-pub fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<NodeId, u64>, Vec<NodeId>) {
+pub fn bfs_distances(
+    g: &HashGraph,
+    starting_node_id: &NodeId,
+) -> (BTreeMap<NodeId, u64>, Vec<NodeId>) {
     let mut visited_node_id_set = HashSet::new();
     let mut ordered_node_id_list = Vec::new();
 
@@ -177,9 +183,8 @@ pub fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<Node
     q.push_back(*starting_node_id);
     visited_node_id_set.insert(*starting_node_id);
     while let Some(current_node_id) = q.pop_front() {
-
-        info!("Queue is {:#?}",q);
-        info!("Curr node id is {:#?}",current_node_id);
+        info!("Queue is {:#?}", q);
+        info!("Curr node id is {:#?}", current_node_id);
 
         let current_node = Handle::pack(current_node_id, false);
         ordered_node_id_list.push(current_node_id);
@@ -198,7 +203,8 @@ pub fn bfs_distances(g: &HashGraph, starting_node_id: &NodeId) -> (BTreeMap<Node
     (distances_map, ordered_node_id_list)
 }
 
-/// Returns how many nodes are at the same distance
+/// Returns a map where, for each distance from the root (i.e. an integer between 0 and the maximum distance),
+/// contains the number of nodes at that distance
 pub fn get_dist_to_num_nodes(distances_map: &BTreeMap<NodeId, u64>) -> BTreeMap<u64, usize> {
     let mut dist_to_num_nodes: BTreeMap<u64, usize> = BTreeMap::new();
 
@@ -233,7 +239,9 @@ pub fn get_path_to_sequence(
     path_to_sequence_map
 }
 
-/// Detects the bubbles in a variation graph
+/// Detects bubbles in a variation graph. A bubble consists of multiple directed unipaths
+/// (a path in which all internal vertices are of degree 2) between two vertices. In the
+/// context of this program, bubbles are represented as pairs (Start_Node_Id, End_Node_Id)
 pub fn detect_bubbles(
     distances_map: &BTreeMap<NodeId, u64>,
     ordered_node_id_list: &[NodeId],
@@ -244,17 +252,17 @@ pub fn detect_bubbles(
 
     let mut curr_bubble: (NodeId, NodeId) = (NodeId::from(0), NodeId::from(0));
     for node_id in ordered_node_id_list {
-        //Get distance of current NodeId from root in g_bfs
+        // Get distance of current NodeId from root in g_bfs
         let node_distance = distances_map[&node_id];
 
-        //If there is only 1 node at that distance
+        // If there is only 1 node at that distance
         if dist_to_num_nodes[&node_distance] == 1 {
-            //And there are multiple nodes at distance+1 -> open bubble
-            //Note: node_distance could go out of bounds
+            // And there are multiple nodes at distance+1 -> open bubble
+            // Note: node_distance could go out of bounds
             if ((node_distance + 1) as usize) < dist_to_num_nodes.len()
                 && dist_to_num_nodes[&(node_distance + 1)] > 1
             {
-                //Close current bubble if one is already open
+                // Close current bubble if one is already open
                 if open_bubble {
                     curr_bubble.1 = *node_id;
                     possible_bubbles_list.push(curr_bubble);
@@ -265,13 +273,13 @@ pub fn detect_bubbles(
                 curr_bubble.0 = *node_id;
                 open_bubble = true;
             } else {
-                //If a bubble is open
+                // If a bubble is open
                 if open_bubble {
-                    //Close bubble
+                    // Close bubble
                     curr_bubble.1 = *node_id;
                     possible_bubbles_list.push(curr_bubble);
 
-                    //Reset curr_bubble for future bubbles
+                    // Reset curr_bubble for future bubbles
                     curr_bubble = (NodeId::from(0), NodeId::from(0));
                     open_bubble = false;
                 }
@@ -282,34 +290,38 @@ pub fn detect_bubbles(
     possible_bubbles_list
 }
 
-/// Prints all paths in a given HashGrap, starting from a specific node and ending in another node
+/// Return a list of paths between two given nodes, where each path is represented
+/// as a list of NodeIds
 pub fn find_all_paths_between(
     g: &HashGraph,
     start_node_id: &NodeId,
     end_node_id: &NodeId,
-    max_edges: i32
+    max_edges: i32,
 ) -> Vec<Vec<NodeId>> {
     let mut all_paths_list: Vec<Vec<NodeId>> = Vec::new();
 
-    //Put a limit on the maximum amount of edges that can be traversed
-    //this should prevent eccessive memory usage
-    
-    info!("Max edges is {:#?}",max_edges);
-
+    // Put a limit on the maximum amount of edges that can be traversed
+    // this should prevent eccessive memory usage
+    info!("Max edges is {:#?}", max_edges);
     let mut curr_edges = 0;
     let mut edges_limit_reached = false;
 
+    // Keep a set of visited nodes so that loops are avoided
     let mut visited_node_id_set: HashSet<NodeId> = HashSet::new();
-    //Create queue
+
+    // Create queue
+    // NOTE: this is a Queue based implementation, this was done
+    // in order not to get a stack overflow (the previous recursion-based
+    // version was often experiencing this kind of issue)
     let mut q: VecDeque<NodeId> = VecDeque::new();
-    //Insert first value
+
+    // Insert first value
     q.push_back(*start_node_id);
     all_paths_list.push(vec![*start_node_id]);
 
     while !q.is_empty() {
-
-        info!("All paths is {:#?}",all_paths_list);
-        info!("Q is: {:#?}",q);
+        info!("All paths is {:#?}", all_paths_list);
+        info!("Q is: {:#?}", q);
 
         let curr_node = q.pop_front().unwrap();
 
@@ -320,28 +332,28 @@ pub fn find_all_paths_between(
         visited_node_id_set.insert(curr_node);
         let current_handle = Handle::pack(curr_node, false);
 
-        //Get all paths that end in curr_node
+        // Get all paths that end in curr_node
         let mut curr_paths_list: Vec<_> = all_paths_list.clone();
         curr_paths_list.retain(|x| x.ends_with(&[curr_node]));
 
-        //Only keep those which don't
+        // Only keep those which don't
         all_paths_list.retain(|x| !x.ends_with(&[curr_node]));
 
-        info!("Curr_paths_list: {:#?}",curr_paths_list);
+        info!("Curr_paths_list: {:#?}", curr_paths_list);
         //io::stdin().read_line(&mut String::new());
 
         for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
-            //Append, for each current_path, this neighbor
+            // Append, for each current_path, this neighbor
             let mut temp = curr_paths_list.clone();
             temp.iter_mut().for_each(|x| x.push(neighbor.id()));
             all_paths_list.append(&mut temp);
 
-            //Add new node to queue
+            // Add new node to queue
             if !visited_node_id_set.contains(&neighbor.id()) && !q.contains(&neighbor.id()) {
                 q.push_back(neighbor.id());
             }
 
-            //Break if too many edges have been visited
+            // Break if too many edges have been visited
             curr_edges = curr_edges + 1;
             if curr_edges > max_edges {
                 edges_limit_reached = true;
@@ -353,15 +365,19 @@ pub fn find_all_paths_between(
             break;
         }
 
-        info!("All_paths_list: {:#?}",all_paths_list);
+        info!("All_paths_list: {:#?}", all_paths_list);
         //io::stdin().read_line(&mut String::new());
     }
 
-    //Only keep paths that end in end_node_id
-    //start_node_id does not have to be checked
+    // Only keep paths that end in end_node_id
+    // start_node_id does not have to be checked
+    // TODO: maybe not needed?
     all_paths_list.retain(|x| x.ends_with(&[*end_node_id]));
 
-    info!("All paths between {} and {} are: {:#?}",start_node_id, end_node_id, all_paths_list);
+    info!(
+        "All paths between {} and {} are: {:#?}",
+        start_node_id, end_node_id, all_paths_list
+    );
 
     //io::stdin().read_line(&mut String::new());
 
@@ -375,15 +391,14 @@ pub fn detect_all_variants(
     graph: &HashGraph,
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     verbose: bool,
-    max_edges: i32
+    max_edges: i32,
 ) -> Vec<Variant> {
     let mut stuff_to_alts_map: HashMap<String, HashSet<String>> = HashMap::new();
 
     // Taking each known path as reference, explore all bubbles in order to find variants;
     // these will be stored in stuff_to_alts_map
     for current_ref in path_to_steps_map.keys() {
-        //Obtain all steps for each path
-        //let mut ref_path = vec![];
+        // Obtain all steps for current_ref
         let ref_path: Vec<u64> = path_to_steps_map[current_ref]
             .iter()
             .map(|x| x.parse::<u64>().unwrap())
@@ -393,12 +408,10 @@ pub fn detect_all_variants(
             println!("path_to_steps_map: {:?}", path_to_steps_map);
         }
 
-        // for x in &path_to_steps_map[current_ref] {
-        //     ref_path.push(x.parse::<u64>().unwrap());
-        // }
-
         info!("BEFORE DETECT");
 
+        // Loop through all bubbles in order to find all variants
+        // for the given reference
         detect_variants_per_reference(
             &current_ref,
             &ref_path,
@@ -407,7 +420,7 @@ pub fn detect_all_variants(
             node_id_to_path_and_pos_map,
             &mut stuff_to_alts_map,
             verbose,
-            max_edges
+            max_edges,
         );
 
         info!("AFTER DETECT");
@@ -451,9 +464,7 @@ pub fn detect_all_variants(
 
     // Sort vcf_list for printing variants in the correct order
     vcf_list.sort_by(|a, b| match a.chromosome.cmp(&b.chromosome) {
-        Ordering::Equal => a
-            .position
-            .cmp(&b.position),
+        Ordering::Equal => a.position.cmp(&b.position),
         other => other,
     });
 
@@ -468,7 +479,7 @@ fn detect_variants_per_reference(
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     stuff_to_alts_map: &mut HashMap<String, HashSet<String>>,
     verbose: bool,
-    max_edges: i32
+    max_edges: i32,
 ) {
     info!("BEFORE GET LAST");
 
@@ -500,7 +511,7 @@ fn detect_variants_per_reference(
 
         info!("AFTER FIND ALL PATHS BETWEEN");
 
-        info!("All paths list: {:?}",all_path_list);
+        info!("All paths list: {:?}", all_path_list);
         for path in &all_path_list {
             if verbose {
                 println!("\tPath: {:?}", path);

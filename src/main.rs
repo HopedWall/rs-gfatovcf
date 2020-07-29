@@ -75,10 +75,11 @@ fn main() {
         .expect("Could not parse argument --output");
     let verbose = matches.is_present("verbose");
     let json_out = matches.value_of("json");
-    let max_edges = matches.value_of("max-edges").unwrap().parse::<i32>().unwrap();
-
-    //let in_path_file = "./input/samplePath3.gfa";
-    //let out_path_file = "./input/samplePath3.vcf";
+    let max_edges = matches
+        .value_of("max-edges")
+        .unwrap()
+        .parse::<i32>()
+        .unwrap();
 
     if let Some(gfa) = gfa::parser::parse_gfa(&PathBuf::from(in_path_file)) {
         let graph = HashGraph::from_gfa(&gfa);
@@ -86,7 +87,7 @@ fn main() {
         // Stores json of starting graph in a file
         if json_out.is_some() {
             let json = graph_to_json(&graph);
-            let buffer = PathBuf::from(format!("{}-graph.json", json_out.unwrap()));
+            let buffer = PathBuf::from(format!("{}graph.json", json_out.unwrap()));
             json_to_file(&json, &buffer).expect("Cannot write json");
         }
 
@@ -108,13 +109,13 @@ fn main() {
             }
         }
 
-        //Obtains the tree representing the bfs
+        // Obtains the tree representing the bfs
         let g_bfs: HashGraph = bfs(&graph, &NodeId::from(1));
 
         // Stores json of bfs-tree in a file
         if json_out.is_some() {
             let json = graph_to_json(&g_bfs);
-            let buffer = PathBuf::from(format!("{}-bfs.json", json_out.unwrap()));
+            let buffer = PathBuf::from(format!("{}bfs.json", json_out.unwrap()));
             json_to_file(&json, &buffer).expect("Cannot write json");
         }
 
@@ -134,8 +135,8 @@ fn main() {
             }
         }
 
-        //Obtains a map where, for each distance from root, the number of nodes
-        //at that distance are present
+        // Obtains a map where, for each distance from root, the number of nodes
+        // at that distance are present
         let dist_to_num_nodes: BTreeMap<u64, usize> = get_dist_to_num_nodes(&distances_map);
 
         if verbose {
@@ -145,6 +146,7 @@ fn main() {
             }
         }
 
+        // Obtains a list of bubbles, each Bubble is represented as (Start_Node_Id, End_Node_Id)
         let possible_bubbles_list: Vec<(NodeId, NodeId)> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
@@ -153,25 +155,30 @@ fn main() {
             println!("Detected bubbles {:#?}", possible_bubbles_list);
             println!("\n------------------");
 
-            //Obtains, for each path, a string representing all the bases of the path (not actually used)
+            // Obtains, for each path, a string representing all the bases of the path
             let path_to_sequence_map: HashMap<String, String> =
                 get_path_to_sequence(&graph, &path_to_steps_map);
             println!("Path to sequence: {:?}", path_to_sequence_map);
         }
 
-        let vcf_list = detect_all_variants(
+        // Obtains the list of Variants in the graph
+        let vcf_list: Vec<Variant> = detect_all_variants(
             &path_to_steps_map,
             &possible_bubbles_list,
             &graph,
             &node_id_to_path_and_pos_map,
             verbose,
-            max_edges
+            max_edges,
         );
 
         // Get path names
-        let mut paths_list : Vec<String> = graph.paths.iter().map(|(_,value)| value.name.clone()).collect();
+        let mut paths_list: Vec<String> = graph
+            .paths
+            .iter()
+            .map(|(_, value)| value.name.clone())
+            .collect();
         paths_list.sort();
-        //Write variants to file
+        // Write variants to file
         write_variants_to_file(&PathBuf::from(out_path_file), &mut paths_list, &vcf_list).unwrap();
     } else {
         panic!("Couldn't parse gfa file!");
