@@ -516,6 +516,11 @@ mod tests {
         let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
+        let paths_list = path_to_steps_map
+            .keys()
+            .map(|x| x.to_string())
+            .collect::<Vec<String>>();
+
         //Find variants from bubbles
         let vcf_list = detect_all_variants(
             &path_to_steps_map,
@@ -524,7 +529,7 @@ mod tests {
             &node_id_to_path_and_pos_map,
             false,
             100,
-            &Vec::new(),
+            &paths_list,
         );
 
         vcf_list
