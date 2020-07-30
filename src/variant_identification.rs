@@ -65,27 +65,15 @@ pub fn detect_all_variants(
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     verbose: bool,
     max_edges: i32,
-    paths: Vec<String>,
+    reference_paths: &Vec<String>,
 ) -> Vec<Variant> {
     let mut stuff_to_alts_map: HashMap<String, HashSet<String>> = HashMap::new();
-
-    let reference_paths: Vec<String>;
-    if paths.is_empty() {
-        // Consider all known reference paths
-        reference_paths = path_to_steps_map
-            .keys()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>();
-    } else {
-        // Only consider specific paths if the -p option has been provided
-        reference_paths = paths;
-    }
 
     // For each reference path, explore all bubbles in order to find variants;
     // these will be stored in stuff_to_alts_map
     for current_ref in reference_paths {
         // Obtain all steps for current_ref
-        let ref_path: Vec<u64> = path_to_steps_map[&current_ref]
+        let ref_path: Vec<u64> = path_to_steps_map[current_ref]
             .iter()
             .map(|x| x.parse::<u64>().unwrap())
             .collect();
@@ -536,7 +524,7 @@ mod tests {
             &node_id_to_path_and_pos_map,
             false,
             100,
-            Vec::new(),
+            &Vec::new(),
         );
 
         vcf_list

@@ -75,7 +75,7 @@ fn main() {
                 .long("reference-paths")
                 .value_name("LIST")
                 .takes_value(true)
-                .help("Sets the reference paths to be used during bubble detection (comma separated)"),
+                .help("Sets the reference paths to be used during bubble detection (comma separated). By default all paths are used."),
         )
         .get_matches();
 
@@ -123,7 +123,7 @@ fn main() {
         }
 
         // Obtains the tree representing the bfs
-        let g_bfs: HashGraph = bfs(&graph, &NodeId::from(1));
+        let g_bfs: HashGraph = bfs(&graph, &graph.min_id);
 
         // Stores json of bfs-tree in a file
         if json_out.is_some() {
@@ -174,15 +174,23 @@ fn main() {
             println!("Path to sequence: {:?}", path_to_sequence_map);
         }
 
-        //Obtain paths from input
-        let mut paths: Vec<String> = Vec::new();
+        // Obtain paths that will be used as reference
+        let mut paths_list: Vec<String>;
         if reference_paths.is_some() {
-            paths = reference_paths
+            // either the ones specified by the user via -p
+            paths_list = reference_paths
                 .unwrap()
                 .split(",")
                 .map(|x| x.to_string())
                 .collect::<Vec<String>>();
+        } else {
+            // or all the paths in the gfa
+            paths_list = path_to_steps_map
+                .keys()
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>();
         }
+        paths_list.sort();
 
         // Obtains the list of Variants in the graph
         let vcf_list: Vec<Variant> = detect_all_variants(
@@ -192,16 +200,9 @@ fn main() {
             &node_id_to_path_and_pos_map,
             verbose,
             max_edges,
-            paths,
+            &paths_list,
         );
 
-        // Get path names
-        let mut paths_list: Vec<String> = graph
-            .paths
-            .iter()
-            .map(|(_, value)| value.name.clone())
-            .collect();
-        paths_list.sort();
         // Write variants to file
         write_variants_to_file(&PathBuf::from(out_path_file), &mut paths_list, &vcf_list).unwrap();
     } else {

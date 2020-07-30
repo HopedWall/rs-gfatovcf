@@ -27,6 +27,7 @@ Where:
 
 You can also add one or more of the following arguments:
 - **-v** (or **--verbose**) to display various debug messages.
+- **-p {path_ids}** (or **--reference-paths {path_ids}**) to specify which paths from the GFA should be used as reference. By default, all paths are used.
 - **-m {integer}** to set the max number of edges to be traversed, default is 100. **WARNING: Greater values may require a very large amount of memory!** 
 - **-j {path}** (or **--json {path}**) to store both the starting graph and its bfs-tree in json format.
 
