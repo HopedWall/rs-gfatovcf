@@ -495,8 +495,6 @@ mod tests {
     use handlegraph::hashgraph::HashGraph;
     use handlegraph::mutablehandlegraph::*;
     use std::path::PathBuf;
-    use handlegraph::handlegraph::handles_iter;
-    use handlegraph::hashgraph::Path;
     use handlegraph::pathgraph::PathHandleGraph;
 
     //Used in other tests

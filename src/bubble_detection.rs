@@ -209,10 +209,9 @@ pub fn detect_bubbles(
     let mut possible_bubbles_list: Vec<Bubble> = Vec::new();
     let mut open_bubble = false;
 
-    let mut curr_bubble = Bubble {
-        start: NodeId::from(0),
-        end: NodeId::from(0),
-    };
+    let mut curr_bubble_stack : Vec<Bubble> = Vec::new();
+    //curr_bubble_stack.push(value: T);
+    //curr_bubble_stack.pop()
 
     for node_id in ordered_node_id_list {
         // Get distance of current NodeId from root in g_bfs
@@ -225,32 +224,29 @@ pub fn detect_bubbles(
             if ((node_distance + 1) as usize) < dist_to_num_nodes.len()
                 && dist_to_num_nodes[&(node_distance + 1)] > 1
             {
+                
                 // Close current bubble if one is already open
                 if open_bubble {
+                    let mut curr_bubble = curr_bubble_stack.pop().unwrap(); 
                     curr_bubble.end = *node_id;
                     possible_bubbles_list.push(curr_bubble);
-                    curr_bubble = Bubble {
-                        start: NodeId::from(0),
-                        end: NodeId::from(0),
-                    };
                 }
 
-                // Start new bubble
-                curr_bubble.start = *node_id;
+                // Open bubble
+                let curr_bubble = Bubble {
+                    start: *node_id,
+                    end: NodeId::from(0),
+                };
+                curr_bubble_stack.push(curr_bubble);
                 open_bubble = true;
             } else {
+                
                 // If a bubble is open
-                if open_bubble {
+                if !curr_bubble_stack.is_empty() {
                     // Close bubble
+                    let mut curr_bubble = curr_bubble_stack.pop().unwrap();
                     curr_bubble.end = *node_id;
                     possible_bubbles_list.push(curr_bubble);
-
-                    // Reset curr_bubble for future bubbles
-                    curr_bubble = Bubble {
-                        start: NodeId::from(0),
-                        end: NodeId::from(0),
-                    };
-                    open_bubble = false;
                 }
             }
         }
