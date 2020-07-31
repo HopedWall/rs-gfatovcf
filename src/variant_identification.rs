@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 
 /// A struct that holds Variants, as defined in the VCF format
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Variant {
     chromosome: String,
     position: i32,
@@ -425,6 +425,7 @@ pub fn find_all_paths_between(
         info!("Q is: {:#?}", q);
 
         let curr_node = q.pop_front().unwrap();
+        info!("Curr node is {:#?}", curr_node);
 
         if curr_node == *end_node_id {
             continue;
@@ -444,6 +445,7 @@ pub fn find_all_paths_between(
         //io::stdin().read_line(&mut String::new());
 
         for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
+            info!("Neighbor: {:#?}",neighbor.id());
             // Append, for each current_path, this neighbor
             let mut temp = curr_paths_list.clone();
             temp.iter_mut().for_each(|x| x.push(neighbor.id()));
@@ -493,6 +495,9 @@ mod tests {
     use handlegraph::hashgraph::HashGraph;
     use handlegraph::mutablehandlegraph::*;
     use std::path::PathBuf;
+    use handlegraph::handlegraph::handles_iter;
+    use handlegraph::hashgraph::Path;
+    use handlegraph::pathgraph::PathHandleGraph;
 
     //Used in other tests
     fn read_test_gfa() -> HashGraph {
@@ -501,7 +506,7 @@ mod tests {
         HashGraph::from_gfa(&parse_gfa(&PathBuf::from("./input/samplePath3.gfa")).unwrap())
     }
 
-    fn run_whole_script(graph: HashGraph) -> Vec<Variant> {
+    fn run_whole_script(graph: HashGraph) -> (Vec<Variant>, HashGraph, Vec<Bubble>) {
         //Obtain preliminary data required for future steps
         let mut path_to_steps_map: HashMap<String, Vec<String>> = paths_to_steps(&graph);
         let node_id_to_path_and_pos_map: BTreeMap<NodeId, HashMap<String, usize>> =
@@ -532,13 +537,13 @@ mod tests {
             &paths_list,
         );
 
-        vcf_list
+        (vcf_list, g_bfs, possible_bubbles_list)
     }
 
     #[test]
     fn test_variant_detection() {
         let graph = read_test_gfa();
-        let variants_found = run_whole_script(graph);
+        let variants_found = run_whole_script(graph).0;
 
         //Check that all variants have been found
         assert_eq!(variants_found.len(), 21);
@@ -643,4 +648,348 @@ mod tests {
         assert!(paths.contains(&vec![h1.id(), h3.id(), h2.id()]));
         assert!(paths.contains(&vec![h1.id(), h3.id(), h4.id(), h2.id()]));
     }
+
+    #[test]
+    fn find_all_paths_3() {
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AT");
+
+        //Add edges
+        //Path 1
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h2, h4));
+        //Path 2
+        graph.create_edge(&Edge(h1, h3));
+        graph.create_edge(&Edge(h3, h4));
+        
+        graph.create_edge(&Edge(h4, h5));
+
+        let paths = find_all_paths_between(&graph, &h1.id(), &h5.id(), 100);
+
+        assert!(paths.len() == 2);
+        assert!(paths.contains(&vec![h1.id(), h2.id(), h4.id(), h5.id()]));
+        assert!(paths.contains(&vec![h1.id(), h3.id(), h4.id(), h5.id()]));
+    }
+
+    #[test]
+    fn find_all_paths_4() {
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AT");
+        let h6 = graph.append_handle("GT");
+
+        //Add edges
+        //Path 1
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h3, h5));
+        //Path 2
+        graph.create_edge(&Edge(h1, h4));
+        graph.create_edge(&Edge(h4, h5));
+        
+        graph.create_edge(&Edge(h5, h6));
+
+        let paths = find_all_paths_between(&graph, &h1.id(), &h6.id(), 100);
+
+        assert!(paths.len() == 2);
+        assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h5.id(), h6.id()]));
+        assert!(paths.contains(&vec![h1.id(), h4.id(), h5.id(), h6.id()]));
+    }
+
+    #[test]
+    fn find_all_paths_4_alt() {
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AT");
+        let h6 = graph.append_handle("GT");
+
+        //Add edges
+        //Path 1
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h3, h5));
+        //Path 2
+        graph.create_edge(&Edge(h1, h4));
+        graph.create_edge(&Edge(h4, h5));
+        
+        graph.create_edge(&Edge(h5, h6));
+
+        let paths = find_all_paths_between(&graph, &h1.id(), &h6.id(), 100);
+
+        assert!(paths.len() == 2);
+        assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h5.id(), h6.id()]));
+        assert!(paths.contains(&vec![h1.id(), h4.id(), h5.id(), h6.id()]));
+    }
+
+    #[test]
+    fn find_all_paths_5() {
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AT");
+        let h6 = graph.append_handle("GT");
+
+        //Add edges
+        //Path 1
+        graph.create_edge(&Edge(h1, h2));
+
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h2, h4));
+
+        graph.create_edge(&Edge(h3, h5));
+        graph.create_edge(&Edge(h4, h5));
+        graph.create_edge(&Edge(h5, h6));
+
+        //Path 2
+        graph.create_edge(&Edge(h1, h6));
+
+        let paths = find_all_paths_between(&graph, &h1.id(), &h6.id(), 100);
+
+        assert!(paths.len() == 3);
+        assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h5.id(), h6.id()]));
+        assert!(paths.contains(&vec![h1.id(), h2.id(), h4.id(), h5.id(), h6.id()]));
+        assert!(paths.contains(&vec![h1.id(), h6.id()]));  
+    }
+
+    #[test]
+    fn find_all_paths_5_alt() {
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AT");
+        let h6 = graph.append_handle("GT");
+        let h7 = graph.append_handle("CG");
+
+        //Add edges
+        //Path 1
+        graph.create_edge(&Edge(h1, h2));
+
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h2, h4));
+
+        graph.create_edge(&Edge(h3, h5));
+        graph.create_edge(&Edge(h4, h5));
+        graph.create_edge(&Edge(h5, h6));
+        graph.create_edge(&Edge(h6, h7));
+
+        //Path 2
+        graph.create_edge(&Edge(h1, h7));
+
+        let paths = find_all_paths_between(&graph, &h1.id(), &h7.id(), 100);
+
+        assert!(paths.len() == 3, "There are {} paths insted: {:#?}", paths.len(), paths);
+        assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h5.id(), h6.id(), h7.id()]));
+        assert!(paths.contains(&vec![h1.id(), h2.id(), h4.id(), h5.id(), h6.id(), h7.id()]));
+        assert!(paths.contains(&vec![h1.id(), h7.id()]));  
+    }
+
+    #[test]
+    fn whole_script_1() {
+        // Test the script in a simple linear path
+        
+        let mut graph = HashGraph::new();
+
+        //Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+
+        //Add edges
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h3, h4));
+
+        let (variants, g_bfs, bubbles) = run_whole_script(graph);
+
+        // for h in handles_iter(&g_bfs) {
+        //     display_node_edges(&g_bfs, &h);
+        // }
+
+        assert!(g_bfs.has_edge(h1, h2));
+        assert!(g_bfs.has_edge(h2, h3));
+        assert!(g_bfs.has_edge(h3, h4));
+
+        assert!(variants.len() == 0);
+        assert!(bubbles.len() == 0);
+    }
+
+    #[test]
+    fn whole_script_2() {
+        // Test the script with a simple bubble
+        
+        let mut graph = HashGraph::new();
+
+        // Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+
+        // Add edges
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h1, h3));
+        graph.create_edge(&Edge(h2, h4));
+        graph.create_edge(&Edge(h3, h4));
+
+        // Add a reference path
+        let path1 = graph.create_path_handle("x", false);
+        graph.append_step(&path1, h1);
+        graph.append_step(&path1, h2);
+        graph.append_step(&path1, h4);
+        // println!("Paths are: {:#?}",graph.paths);
+
+        let (variants, g_bfs, bubbles) = run_whole_script(graph);
+
+        // g_bfs
+        assert!(g_bfs.has_edge(h1, h2));
+        assert!(g_bfs.has_edge(h1, h3));
+        assert!(g_bfs.has_edge(h3, h4) || g_bfs.has_edge(h2, h4));
+        assert!(!(g_bfs.has_edge(h3, h4) && g_bfs.has_edge(h2, h4)));
+
+        // bubbles
+        assert!(bubbles.len() == 1);
+        let bubble_1 = Bubble {
+            start : h1.id(),
+            end : h4.id()
+        };
+        assert!(bubbles.contains(&bubble_1));
+        
+        // variants
+        assert!(variants.len() == 1);
+        let variant_1 = Variant {
+            chromosome: "x".to_string(),
+            position: 2,
+            id: None,
+            reference: "T".to_string(),
+            alternate: Some(
+                "C".to_string(),
+            ),
+            quality: None,
+            filter: None,
+            info: Some(
+                "TYPE=snv".to_string(),
+            ),
+            format: Some(
+                "GT".to_string(),
+            ),
+            sample_name: Some(
+                "0|1".to_string(),
+            ),
+        };
+        assert!(variants.contains(&variant_1));
+    }
+
+    #[test]
+    fn whole_script_3() {
+        // Test the script with a nested bubble
+        
+        let mut graph = HashGraph::new();
+
+        // Add nodes
+        let h1 = graph.append_handle("A");
+        let h2 = graph.append_handle("T");
+        let h3 = graph.append_handle("C");
+        let h4 = graph.append_handle("G");
+        let h5 = graph.append_handle("AT");
+        let h6 = graph.append_handle("GT");
+
+        // Add edges
+        graph.create_edge(&Edge(h1, h2));
+        graph.create_edge(&Edge(h1, h6));
+
+        graph.create_edge(&Edge(h2, h3));
+        graph.create_edge(&Edge(h2, h4));
+
+        graph.create_edge(&Edge(h3, h5));
+        graph.create_edge(&Edge(h4, h5));
+        graph.create_edge(&Edge(h5, h6));
+
+        // Add a reference path
+        let path1 = graph.create_path_handle("y", false);
+        graph.append_step(&path1, h1);
+        graph.append_step(&path1, h6);
+
+        let (variants, g_bfs, bubbles) = run_whole_script(graph);
+
+        // g_bfs
+        // External bubble
+        assert!(g_bfs.has_edge(h1, h2));
+        assert!(g_bfs.has_edge(h1, h6));
+        
+        // Internal bubble
+        assert!(g_bfs.has_edge(h2, h3));
+        assert!(g_bfs.has_edge(h2, h4));
+
+        // Close internal bubble
+        assert!(g_bfs.has_edge(h3, h5) || g_bfs.has_edge(h4, h5));
+        assert!(!(g_bfs.has_edge(h3, h5) && g_bfs.has_edge(h4, h5)));
+
+        //Close external bubble
+        assert!(!(g_bfs.has_edge(h5, h6)));
+        
+
+        // bubbles
+        assert!(bubbles.len() == 2, "Bubbles has len {} and is {:#?}", bubbles.len(), bubbles);
+        let bubble_1 = Bubble {
+            start : h1.id(),
+            end : h6.id()
+        };
+        let bubble_2 = Bubble {
+            start : h2.id(),
+            end : h5.id()
+        };
+        assert!(bubbles.contains(&bubble_1));
+        assert!(bubbles.contains(&bubble_2));
+        
+        // variants
+        assert!(variants.len() == 1);
+        let variant_1 = Variant {
+            chromosome: "x".to_string(),
+            position: 2,
+            id: None,
+            reference: "T".to_string(),
+            alternate: Some(
+                "C".to_string(),
+            ),
+            quality: None,
+            filter: None,
+            info: Some(
+                "TYPE=snv".to_string(),
+            ),
+            format: Some(
+                "GT".to_string(),
+            ),
+            sample_name: Some(
+                "0|1".to_string(),
+            ),
+        };
+        assert!(variants.contains(&variant_1));
+    }
+
+
 }
