@@ -9,6 +9,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 extern crate clap;
 use clap::{App, Arg};
+use std::io::BufReader;
+use std::io::BufRead;
+use std::fs::File;
+
+use three_edge_connected::algorithm;
+use three_edge_connected::graph::Graph;
+use three_edge_connected::state::State;
 
 // Import bubble detection functions
 mod bubble_detection;
@@ -173,6 +180,32 @@ fn main() {
                 get_path_to_sequence(&graph, &path_to_steps_map);
             println!("Path to sequence: {:?}", path_to_sequence_map);
         }
+
+
+        // Use 3-edge-connected algorithm for improved bubble detection
+        let file = File::open(&in_path_file).unwrap();
+        let mut in_handle: Box<dyn BufRead> = Box::new(BufReader::new(file));
+        let graph_3_connect = Graph::from_gfa_reader(&mut in_handle);
+        let mut state = State::initialize(&graph_3_connect.graph);
+        algorithm::three_edge_connect(&graph_3_connect.graph, &mut state);
+        //println!("Inv names: {:#?}",graph_3_connect.inv_names);
+        //println!("Components: {:#?}",state.components());
+
+        let inv_names = graph_3_connect.inv_names;
+
+        let mut connected_components : Vec<Vec<u64>> = Vec::new();
+        let mut current_component : Vec<u64>;
+        for component in state.components() {
+            current_component = Vec::new();
+            if component.len() > 1 {
+                component.iter().for_each(|j| {
+                    current_component.push(inv_names[*j].to_string().parse::<u64>().unwrap());
+                });
+                connected_components.push(current_component);
+            }
+        }
+        println!("Connected_components: {:#?}",connected_components);
+        
 
         // Obtain paths that will be used as reference
         let mut paths_list: Vec<String>;
