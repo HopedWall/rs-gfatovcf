@@ -9,13 +9,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 extern crate clap;
 use clap::{App, Arg};
-use std::io::BufReader;
-use std::io::BufRead;
-use std::fs::File;
-
-use three_edge_connected::algorithm;
-use three_edge_connected::graph::Graph;
-use three_edge_connected::state::State;
 
 // Import bubble detection functions
 mod bubble_detection;
@@ -167,7 +160,7 @@ fn main() {
         }
 
         // Obtains a list of bubbles, each Bubble is represented as (Start_Node_Id, End_Node_Id)
-        let possible_bubbles_list: Vec<Bubble> =
+        let mut possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
         if verbose {
@@ -181,32 +174,19 @@ fn main() {
             println!("Path to sequence: {:?}", path_to_sequence_map);
         }
 
-
-        // Use 3-edge-connected algorithm for improved bubble detection
-        let file = File::open(&in_path_file).unwrap();
-        let mut in_handle: Box<dyn BufRead> = Box::new(BufReader::new(file));
-        let graph_3_connect = Graph::from_gfa_reader(&mut in_handle);
-        let mut state = State::initialize(&graph_3_connect.graph);
-        algorithm::three_edge_connect(&graph_3_connect.graph, &mut state);
-        //println!("Inv names: {:#?}",graph_3_connect.inv_names);
-        //println!("Components: {:#?}",state.components());
-
-        let inv_names = graph_3_connect.inv_names;
-
-        let mut connected_components : Vec<Vec<u64>> = Vec::new();
-        let mut current_component : Vec<u64>;
-        for component in state.components() {
-            current_component = Vec::new();
-            if component.len() > 1 {
-                component.iter().for_each(|j| {
-                    current_component.push(inv_names[*j].to_string().parse::<u64>().unwrap());
-                });
-                connected_components.push(current_component);
-            }
+        // Use 3-edge-connected algorithm for superbubble detection
+        let connected_components = find_connected_components(&in_path_file);
+        if verbose {
+            println!("Connected components: {:#?}",connected_components);
         }
-        println!("Connected_components: {:#?}",connected_components);
+        //let cactus_graph : HashGraph = merge_connected_components(&graph, &connected_components);
+        // Obtain superbubbles
+        let mut superbubbles : Vec<Bubble> = detect_superbubbles(&graph, &connected_components);
+        //Merge simple bubbles and superbubbles
+        possible_bubbles_list.append(&mut superbubbles);
+        //Remove possible duplicates (=same bubble reported multiple times)
+        possible_bubbles_list.dedup();
         
-
         // Obtain paths that will be used as reference
         let mut paths_list: Vec<String>;
         if reference_paths.is_some() {

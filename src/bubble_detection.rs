@@ -13,6 +13,13 @@ use log::info;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
+use three_edge_connected::algorithm;
+use three_edge_connected::graph::Graph;
+use three_edge_connected::state::State;
+use std::io::BufReader;
+use std::io::BufRead;
+use std::fs::File;
+
 /// A struct that holds Bubbles. A bubble consists of multiple directed unipaths
 /// (a path in which all internal vertices are of degree 2) between two vertices.
 #[derive(Debug, PartialEq)]
@@ -291,6 +298,55 @@ pub fn get_node_positions_in_paths(
 
     node_id_to_path_and_pos_map
 }
+
+/// Finds connected components, adapted from chfi's rs-3-edge
+/// https://github.com/chfi/rs-3-edge
+pub fn find_connected_components(in_path_file : &str) -> Vec<Vec<u64>> {
+    let file = File::open(&in_path_file).unwrap();
+    let mut in_handle: Box<dyn BufRead> = Box::new(BufReader::new(file));
+    let graph_3_connect = Graph::from_gfa_reader(&mut in_handle);
+    let mut state = State::initialize(&graph_3_connect.graph);
+    algorithm::three_edge_connect(&graph_3_connect.graph, &mut state);
+    let inv_names = graph_3_connect.inv_names;
+
+    let mut connected_components : Vec<Vec<u64>> = Vec::new();
+    let mut current_component : Vec<u64>;
+    for component in state.components() {
+        current_component = Vec::new();
+        if component.len() > 1 {
+            component.iter().for_each(|j| {
+                current_component.push(inv_names[*j].to_string().parse::<u64>().unwrap());
+            });
+            connected_components.push(current_component);
+        }
+    }
+
+    connected_components
+}
+
+/// Finds superbubbles
+pub fn detect_superbubbles(graph : &HashGraph, connected_components : &Vec<Vec<u64>>) -> Vec<Bubble> {
+    let superbubbles : Vec<Bubble> = Vec::new();
+
+    for component in connected_components {
+        
+        let curr_bubble = Bubble {
+            start: NodeId::from(0),
+            end : NodeId::from(0)
+        };
+
+        for handle in handles_iter(graph) {
+            let neighbors = handle_edges_iter(graph, handle, Direction::Right).map(|x| x.id()).collect::<Vec<NodeId>>();
+            
+            //TODO: figure out 1) if it's correct 2) how to do it exaclty
+        
+        }
+        
+    }
+
+    superbubbles
+}
+
 
 #[cfg(test)]
 mod tests {
