@@ -22,6 +22,11 @@ use crate::variant_identification::*;
 mod file_io;
 use crate::file_io::*;
 
+//Import snarl detection functions
+mod snarl_detection;
+use crate::snarl_detection::*;
+
+
 /// The function that runs the script
 fn main() {
     let matches = App::new("rs-GFAtoVCF")

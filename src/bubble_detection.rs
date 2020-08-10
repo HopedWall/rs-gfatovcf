@@ -326,9 +326,11 @@ pub fn find_connected_components(in_path_file : &str) -> Vec<Vec<u64>> {
 
 /// Finds superbubbles
 pub fn detect_superbubbles(graph : &HashGraph, connected_components : &Vec<Vec<u64>>) -> Vec<Bubble> {
-    let superbubbles : Vec<Bubble> = Vec::new();
+    let mut superbubbles : Vec<Bubble> = Vec::new();
 
     for component in connected_components {
+
+        let mut found = false;
         
         let curr_bubble = Bubble {
             start: NodeId::from(0),
@@ -339,9 +341,17 @@ pub fn detect_superbubbles(graph : &HashGraph, connected_components : &Vec<Vec<u
             let neighbors = handle_edges_iter(graph, handle, Direction::Right).map(|x| x.id()).collect::<Vec<NodeId>>();
             
             //TODO: figure out 1) if it's correct 2) how to do it exaclty
+
+            if true {
+                found = true;
+            }
         
         }
-        
+
+        if found {
+            superbubbles.push(curr_bubble);
+        }
+         
     }
 
     superbubbles
