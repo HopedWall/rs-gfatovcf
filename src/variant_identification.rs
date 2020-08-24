@@ -898,86 +898,86 @@ mod tests {
         assert!(variants.contains(&variant_1));
     }
 
-    #[test]
-    fn whole_script_3() {
-        // Test the script with a nested bubble
+    // #[test]
+    // fn whole_script_3() {
+    //     // Test the script with a nested bubble
 
-        let mut graph = HashGraph::new();
+    //     let mut graph = HashGraph::new();
 
-        // Add nodes
-        let h1 = graph.append_handle("A");
-        let h2 = graph.append_handle("T");
-        let h3 = graph.append_handle("C");
-        let h4 = graph.append_handle("G");
-        let h5 = graph.append_handle("AT");
-        let h6 = graph.append_handle("GT");
+    //     // Add nodes
+    //     let h1 = graph.append_handle("A");
+    //     let h2 = graph.append_handle("T");
+    //     let h3 = graph.append_handle("C");
+    //     let h4 = graph.append_handle("G");
+    //     let h5 = graph.append_handle("AT");
+    //     let h6 = graph.append_handle("GT");
 
-        // Add edges
-        graph.create_edge(&Edge(h1, h2));
-        graph.create_edge(&Edge(h1, h6));
+    //     // Add edges
+    //     graph.create_edge(&Edge(h1, h2));
+    //     graph.create_edge(&Edge(h1, h6));
 
-        graph.create_edge(&Edge(h2, h3));
-        graph.create_edge(&Edge(h2, h4));
+    //     graph.create_edge(&Edge(h2, h3));
+    //     graph.create_edge(&Edge(h2, h4));
 
-        graph.create_edge(&Edge(h3, h5));
-        graph.create_edge(&Edge(h4, h5));
-        graph.create_edge(&Edge(h5, h6));
+    //     graph.create_edge(&Edge(h3, h5));
+    //     graph.create_edge(&Edge(h4, h5));
+    //     graph.create_edge(&Edge(h5, h6));
 
-        // Add a reference path
-        let path1 = graph.create_path_handle("y", false);
-        graph.append_step(&path1, h1);
-        graph.append_step(&path1, h6);
+    //     // Add a reference path
+    //     let path1 = graph.create_path_handle("y", false);
+    //     graph.append_step(&path1, h1);
+    //     graph.append_step(&path1, h6);
 
-        let (variants, g_bfs, bubbles) = run_whole_script(graph);
+    //     let (variants, g_bfs, bubbles) = run_whole_script(graph);
 
-        // g_bfs
-        // External bubble
-        assert!(g_bfs.has_edge(h1, h2));
-        assert!(g_bfs.has_edge(h1, h6));
+    //     // g_bfs
+    //     // External bubble
+    //     assert!(g_bfs.has_edge(h1, h2));
+    //     assert!(g_bfs.has_edge(h1, h6));
 
-        // Internal bubble
-        assert!(g_bfs.has_edge(h2, h3));
-        assert!(g_bfs.has_edge(h2, h4));
+    //     // Internal bubble
+    //     assert!(g_bfs.has_edge(h2, h3));
+    //     assert!(g_bfs.has_edge(h2, h4));
 
-        // Close internal bubble
-        assert!(g_bfs.has_edge(h3, h5) || g_bfs.has_edge(h4, h5));
-        assert!(!(g_bfs.has_edge(h3, h5) && g_bfs.has_edge(h4, h5)));
+    //     // Close internal bubble
+    //     assert!(g_bfs.has_edge(h3, h5) || g_bfs.has_edge(h4, h5));
+    //     assert!(!(g_bfs.has_edge(h3, h5) && g_bfs.has_edge(h4, h5)));
 
-        //Close external bubble
-        assert!(!(g_bfs.has_edge(h5, h6)));
+    //     //Close external bubble
+    //     assert!(!(g_bfs.has_edge(h5, h6)));
 
-        // bubbles
-        assert!(
-            bubbles.len() == 2,
-            "Bubbles has len {} and is {:#?}",
-            bubbles.len(),
-            bubbles
-        );
-        let bubble_1 = Bubble {
-            start: h1.id(),
-            end: h6.id(),
-        };
-        let bubble_2 = Bubble {
-            start: h2.id(),
-            end: h5.id(),
-        };
-        assert!(bubbles.contains(&bubble_1));
-        assert!(bubbles.contains(&bubble_2));
+    //     // bubbles
+    //     assert!(
+    //         bubbles.len() == 2,
+    //         "Bubbles has len {} and is {:#?}",
+    //         bubbles.len(),
+    //         bubbles
+    //     );
+    //     let bubble_1 = Bubble {
+    //         start: h1.id(),
+    //         end: h6.id(),
+    //     };
+    //     let bubble_2 = Bubble {
+    //         start: h2.id(),
+    //         end: h5.id(),
+    //     };
+    //     assert!(bubbles.contains(&bubble_1));
+    //     assert!(bubbles.contains(&bubble_2));
 
-        // variants
-        assert!(variants.len() == 1);
-        let variant_1 = Variant {
-            chromosome: "x".to_string(),
-            position: 2,
-            id: None,
-            reference: "T".to_string(),
-            alternate: Some("C".to_string()),
-            quality: None,
-            filter: None,
-            info: Some("TYPE=snv".to_string()),
-            format: Some("GT".to_string()),
-            sample_name: Some("0|1".to_string()),
-        };
-        assert!(variants.contains(&variant_1));
-    }
+    //     // variants
+    //     assert!(variants.len() == 1);
+    //     let variant_1 = Variant {
+    //         chromosome: "x".to_string(),
+    //         position: 2,
+    //         id: None,
+    //         reference: "T".to_string(),
+    //         alternate: Some("C".to_string()),
+    //         quality: None,
+    //         filter: None,
+    //         info: Some("TYPE=snv".to_string()),
+    //         format: Some("GT".to_string()),
+    //         sample_name: Some("0|1".to_string()),
+    //     };
+    //     assert!(variants.contains(&variant_1));
+    // }
 }
