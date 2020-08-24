@@ -245,6 +245,7 @@ pub fn detect_bubbles(
                     let mut curr_bubble = curr_bubble_stack.pop().unwrap();
                     curr_bubble.end = *node_id;
                     possible_bubbles_list.push(curr_bubble);
+                    open_bubble = false;
                 }
             }
         }
