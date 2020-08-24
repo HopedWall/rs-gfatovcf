@@ -13,13 +13,6 @@ use log::info;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
-use three_edge_connected::algorithm;
-use three_edge_connected::graph::Graph;
-use three_edge_connected::state::State;
-use std::io::BufReader;
-use std::io::BufRead;
-use std::fs::File;
-
 /// A struct that holds Bubbles. A bubble consists of multiple directed unipaths
 /// (a path in which all internal vertices are of degree 2) between two vertices.
 #[derive(Debug, PartialEq)]
@@ -216,7 +209,7 @@ pub fn detect_bubbles(
     let mut possible_bubbles_list: Vec<Bubble> = Vec::new();
     let mut open_bubble = false;
 
-    let mut curr_bubble_stack : Vec<Bubble> = Vec::new();
+    let mut curr_bubble_stack: Vec<Bubble> = Vec::new();
     //curr_bubble_stack.push(value: T);
     //curr_bubble_stack.pop()
 
@@ -231,10 +224,9 @@ pub fn detect_bubbles(
             if ((node_distance + 1) as usize) < dist_to_num_nodes.len()
                 && dist_to_num_nodes[&(node_distance + 1)] > 1
             {
-                
                 // Close current bubble if one is already open
                 if open_bubble {
-                    let mut curr_bubble = curr_bubble_stack.pop().unwrap(); 
+                    let mut curr_bubble = curr_bubble_stack.pop().unwrap();
                     curr_bubble.end = *node_id;
                     possible_bubbles_list.push(curr_bubble);
                 }
@@ -247,7 +239,6 @@ pub fn detect_bubbles(
                 curr_bubble_stack.push(curr_bubble);
                 open_bubble = true;
             } else {
-                
                 // If a bubble is open
                 if !curr_bubble_stack.is_empty() {
                     // Close bubble
@@ -283,7 +274,7 @@ pub fn get_node_positions_in_paths(
 
             node_id_to_path_and_pos_map
                 .entry(node_id)
-                .or_insert(HashMap::new());
+                .or_insert_with(HashMap::new);
 
             if !node_id_to_path_and_pos_map[&node_id].contains_key(path_name) {
                 node_id_to_path_and_pos_map
@@ -298,65 +289,6 @@ pub fn get_node_positions_in_paths(
 
     node_id_to_path_and_pos_map
 }
-
-/// Finds connected components, adapted from chfi's rs-3-edge
-/// https://github.com/chfi/rs-3-edge
-pub fn find_connected_components(in_path_file : &str) -> Vec<Vec<u64>> {
-    let file = File::open(&in_path_file).unwrap();
-    let mut in_handle: Box<dyn BufRead> = Box::new(BufReader::new(file));
-    let graph_3_connect = Graph::from_gfa_reader(&mut in_handle);
-    let mut state = State::initialize(&graph_3_connect.graph);
-    algorithm::three_edge_connect(&graph_3_connect.graph, &mut state);
-    let inv_names = graph_3_connect.inv_names;
-
-    let mut connected_components : Vec<Vec<u64>> = Vec::new();
-    let mut current_component : Vec<u64>;
-    for component in state.components() {
-        current_component = Vec::new();
-        if component.len() > 1 {
-            component.iter().for_each(|j| {
-                current_component.push(inv_names[*j].to_string().parse::<u64>().unwrap());
-            });
-            connected_components.push(current_component);
-        }
-    }
-
-    connected_components
-}
-
-/// Finds superbubbles
-pub fn detect_superbubbles(graph : &HashGraph, connected_components : &Vec<Vec<u64>>) -> Vec<Bubble> {
-    let mut superbubbles : Vec<Bubble> = Vec::new();
-
-    for component in connected_components {
-
-        let mut found = false;
-        
-        let curr_bubble = Bubble {
-            start: NodeId::from(0),
-            end : NodeId::from(0)
-        };
-
-        for handle in handles_iter(graph) {
-            let neighbors = handle_edges_iter(graph, handle, Direction::Right).map(|x| x.id()).collect::<Vec<NodeId>>();
-            
-            //TODO: figure out 1) if it's correct 2) how to do it exaclty
-
-            if true {
-                found = true;
-            }
-        
-        }
-
-        if found {
-            superbubbles.push(curr_bubble);
-        }
-         
-    }
-
-    superbubbles
-}
-
 
 #[cfg(test)]
 mod tests {

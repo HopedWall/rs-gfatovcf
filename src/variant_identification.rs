@@ -32,25 +32,24 @@ impl Variant {
     pub fn to_vcf_string(&self) -> String {
         // Extract quality from Variant
         // Note: quality is of type Option<i32>, when it is None "." should be returned
-        let quality_string: String;
-        if self.quality.is_none() {
-            quality_string = ".".to_string();
+        let quality_string = if self.quality.is_none() {
+            ".".to_string()
         } else {
-            quality_string = self.quality.unwrap().to_string();
-        }
+            self.quality.unwrap().to_string()
+        };
 
         let vcf_string = format!(
             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
             self.chromosome,
             self.position,
-            self.id.clone().unwrap_or(".".to_string()),
+            self.id.clone().unwrap_or_else(|| ".".to_string()),
             self.reference,
-            self.alternate.clone().unwrap_or(".".to_string()),
+            self.alternate.clone().unwrap_or_else(|| ".".to_string()),
             quality_string,
-            self.filter.clone().unwrap_or(".".to_string()),
-            self.info.clone().unwrap_or(".".to_string()),
-            self.format.clone().unwrap_or(".".to_string()),
-            self.sample_name.clone().unwrap_or(".".to_string())
+            self.filter.clone().unwrap_or_else(|| ".".to_string()),
+            self.info.clone().unwrap_or_else(|| ".".to_string()),
+            self.format.clone().unwrap_or_else(|| ".".to_string()),
+            self.sample_name.clone().unwrap_or_else(|| ".".to_string())
         );
 
         vcf_string
@@ -65,7 +64,7 @@ pub fn detect_all_variants(
     node_id_to_path_and_pos_map: &BTreeMap<NodeId, HashMap<String, usize>>,
     verbose: bool,
     max_edges: i32,
-    reference_paths: &Vec<String>,
+    reference_paths: &[String],
 ) -> Vec<Variant> {
     let mut stuff_to_alts_map: HashMap<String, HashSet<String>> = HashMap::new();
 
@@ -265,7 +264,7 @@ fn detect_variants_per_reference(
 
                         let key =
                             [current_ref.to_string(), (pos_path - 1).to_string(), last].join("_");
-                        stuff_to_alts_map.entry(key).or_insert(HashSet::new());
+                        stuff_to_alts_map.entry(key).or_insert_with(HashSet::new);
                         //TODO: find a better way to do this
                         let last = get_last(prec_nod_seq_ref, node_seq_ref);
 
@@ -310,7 +309,7 @@ fn detect_variants_per_reference(
                         let key =
                             [current_ref.to_string(), (pos_ref - 1).to_string(), last].join("_");
 
-                        stuff_to_alts_map.entry(key).or_insert(HashSet::new());
+                        stuff_to_alts_map.entry(key).or_insert_with(HashSet::new);
 
                         //Re-create key since it goes out of scope
                         let last = prec_nod_seq_ref[prec_nod_seq_ref.len() - 1..].to_string();
@@ -357,7 +356,7 @@ fn detect_variants_per_reference(
                         ]
                         .join("_");
 
-                        stuff_to_alts_map.entry(key).or_insert(HashSet::new());
+                        stuff_to_alts_map.entry(key).or_insert_with(HashSet::new);
 
                         //TODO: find a better way to do this
                         let key = [
@@ -445,7 +444,7 @@ pub fn find_all_paths_between(
         //io::stdin().read_line(&mut String::new());
 
         for neighbor in handle_edges_iter(g, current_handle, Direction::Right) {
-            info!("Neighbor: {:#?}",neighbor.id());
+            info!("Neighbor: {:#?}", neighbor.id());
             // Append, for each current_path, this neighbor
             let mut temp = curr_paths_list.clone();
             temp.iter_mut().for_each(|x| x.push(neighbor.id()));
@@ -457,7 +456,7 @@ pub fn find_all_paths_between(
             }
 
             // Break if too many edges have been visited
-            curr_edges = curr_edges + 1;
+            curr_edges += 1;
             if curr_edges > max_edges {
                 edges_limit_reached = true;
                 break;
@@ -494,8 +493,8 @@ mod tests {
     use handlegraph::handle::{Edge, NodeId};
     use handlegraph::hashgraph::HashGraph;
     use handlegraph::mutablehandlegraph::*;
-    use std::path::PathBuf;
     use handlegraph::pathgraph::PathHandleGraph;
+    use std::path::PathBuf;
 
     //Used in other tests
     fn read_test_gfa() -> HashGraph {
@@ -665,7 +664,7 @@ mod tests {
         //Path 2
         graph.create_edge(&Edge(h1, h3));
         graph.create_edge(&Edge(h3, h4));
-        
+
         graph.create_edge(&Edge(h4, h5));
 
         let paths = find_all_paths_between(&graph, &h1.id(), &h5.id(), 100);
@@ -695,7 +694,7 @@ mod tests {
         //Path 2
         graph.create_edge(&Edge(h1, h4));
         graph.create_edge(&Edge(h4, h5));
-        
+
         graph.create_edge(&Edge(h5, h6));
 
         let paths = find_all_paths_between(&graph, &h1.id(), &h6.id(), 100);
@@ -725,7 +724,7 @@ mod tests {
         //Path 2
         graph.create_edge(&Edge(h1, h4));
         graph.create_edge(&Edge(h4, h5));
-        
+
         graph.create_edge(&Edge(h5, h6));
 
         let paths = find_all_paths_between(&graph, &h1.id(), &h6.id(), 100);
@@ -766,7 +765,7 @@ mod tests {
         assert!(paths.len() == 3);
         assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h5.id(), h6.id()]));
         assert!(paths.contains(&vec![h1.id(), h2.id(), h4.id(), h5.id(), h6.id()]));
-        assert!(paths.contains(&vec![h1.id(), h6.id()]));  
+        assert!(paths.contains(&vec![h1.id(), h6.id()]));
     }
 
     #[test]
@@ -799,16 +798,21 @@ mod tests {
 
         let paths = find_all_paths_between(&graph, &h1.id(), &h7.id(), 100);
 
-        assert!(paths.len() == 3, "There are {} paths insted: {:#?}", paths.len(), paths);
+        assert!(
+            paths.len() == 3,
+            "There are {} paths insted: {:#?}",
+            paths.len(),
+            paths
+        );
         assert!(paths.contains(&vec![h1.id(), h2.id(), h3.id(), h5.id(), h6.id(), h7.id()]));
         assert!(paths.contains(&vec![h1.id(), h2.id(), h4.id(), h5.id(), h6.id(), h7.id()]));
-        assert!(paths.contains(&vec![h1.id(), h7.id()]));  
+        assert!(paths.contains(&vec![h1.id(), h7.id()]));
     }
 
     #[test]
     fn whole_script_1() {
         // Test the script in a simple linear path
-        
+
         let mut graph = HashGraph::new();
 
         //Add nodes
@@ -839,7 +843,7 @@ mod tests {
     #[test]
     fn whole_script_2() {
         // Test the script with a simple bubble
-        
+
         let mut graph = HashGraph::new();
 
         // Add nodes
@@ -872,11 +876,11 @@ mod tests {
         // bubbles
         assert!(bubbles.len() == 1);
         let bubble_1 = Bubble {
-            start : h1.id(),
-            end : h4.id()
+            start: h1.id(),
+            end: h4.id(),
         };
         assert!(bubbles.contains(&bubble_1));
-        
+
         // variants
         assert!(variants.len() == 1);
         let variant_1 = Variant {
@@ -884,20 +888,12 @@ mod tests {
             position: 2,
             id: None,
             reference: "T".to_string(),
-            alternate: Some(
-                "C".to_string(),
-            ),
+            alternate: Some("C".to_string()),
             quality: None,
             filter: None,
-            info: Some(
-                "TYPE=snv".to_string(),
-            ),
-            format: Some(
-                "GT".to_string(),
-            ),
-            sample_name: Some(
-                "0|1".to_string(),
-            ),
+            info: Some("TYPE=snv".to_string()),
+            format: Some("GT".to_string()),
+            sample_name: Some("0|1".to_string()),
         };
         assert!(variants.contains(&variant_1));
     }
@@ -905,7 +901,7 @@ mod tests {
     #[test]
     fn whole_script_3() {
         // Test the script with a nested bubble
-        
+
         let mut graph = HashGraph::new();
 
         // Add nodes
@@ -938,7 +934,7 @@ mod tests {
         // External bubble
         assert!(g_bfs.has_edge(h1, h2));
         assert!(g_bfs.has_edge(h1, h6));
-        
+
         // Internal bubble
         assert!(g_bfs.has_edge(h2, h3));
         assert!(g_bfs.has_edge(h2, h4));
@@ -949,21 +945,25 @@ mod tests {
 
         //Close external bubble
         assert!(!(g_bfs.has_edge(h5, h6)));
-        
 
         // bubbles
-        assert!(bubbles.len() == 2, "Bubbles has len {} and is {:#?}", bubbles.len(), bubbles);
+        assert!(
+            bubbles.len() == 2,
+            "Bubbles has len {} and is {:#?}",
+            bubbles.len(),
+            bubbles
+        );
         let bubble_1 = Bubble {
-            start : h1.id(),
-            end : h6.id()
+            start: h1.id(),
+            end: h6.id(),
         };
         let bubble_2 = Bubble {
-            start : h2.id(),
-            end : h5.id()
+            start: h2.id(),
+            end: h5.id(),
         };
         assert!(bubbles.contains(&bubble_1));
         assert!(bubbles.contains(&bubble_2));
-        
+
         // variants
         assert!(variants.len() == 1);
         let variant_1 = Variant {
@@ -971,23 +971,13 @@ mod tests {
             position: 2,
             id: None,
             reference: "T".to_string(),
-            alternate: Some(
-                "C".to_string(),
-            ),
+            alternate: Some("C".to_string()),
             quality: None,
             filter: None,
-            info: Some(
-                "TYPE=snv".to_string(),
-            ),
-            format: Some(
-                "GT".to_string(),
-            ),
-            sample_name: Some(
-                "0|1".to_string(),
-            ),
+            info: Some("TYPE=snv".to_string()),
+            format: Some("GT".to_string()),
+            sample_name: Some("0|1".to_string()),
         };
         assert!(variants.contains(&variant_1));
     }
-
-
 }

@@ -22,11 +22,6 @@ use crate::variant_identification::*;
 mod file_io;
 use crate::file_io::*;
 
-//Import snarl detection functions
-mod snarl_detection;
-use crate::snarl_detection::*;
-
-
 /// The function that runs the script
 fn main() {
     let matches = App::new("rs-GFAtoVCF")
@@ -165,7 +160,7 @@ fn main() {
         }
 
         // Obtains a list of bubbles, each Bubble is represented as (Start_Node_Id, End_Node_Id)
-        let mut possible_bubbles_list: Vec<Bubble> =
+        let possible_bubbles_list: Vec<Bubble> =
             detect_bubbles(&distances_map, &ordered_node_id_list, &dist_to_num_nodes);
 
         if verbose {
@@ -179,35 +174,20 @@ fn main() {
             println!("Path to sequence: {:?}", path_to_sequence_map);
         }
 
-        // Use 3-edge-connected algorithm for superbubble detection
-        let connected_components = find_connected_components(&in_path_file);
-        if verbose {
-            println!("Connected components: {:#?}",connected_components);
-        }
-        //let cactus_graph : HashGraph = merge_connected_components(&graph, &connected_components);
-        // Obtain superbubbles
-        let mut superbubbles : Vec<Bubble> = detect_superbubbles(&graph, &connected_components);
-        //Merge simple bubbles and superbubbles
-        possible_bubbles_list.append(&mut superbubbles);
-        //Remove possible duplicates (=same bubble reported multiple times)
-        possible_bubbles_list.dedup();
-        
         // Obtain paths that will be used as reference
-        let mut paths_list: Vec<String>;
-        if reference_paths.is_some() {
+        let mut paths_list: Vec<String> = if let Some(references) = reference_paths {
             // either the ones specified by the user via -p
-            paths_list = reference_paths
-                .unwrap()
-                .split(",")
+            references
+                .split(',')
                 .map(|x| x.to_string())
-                .collect::<Vec<String>>();
+                .collect::<Vec<String>>()
         } else {
             // or all the paths in the gfa
-            paths_list = path_to_steps_map
+            path_to_steps_map
                 .keys()
                 .map(|x| x.to_string())
-                .collect::<Vec<String>>();
-        }
+                .collect::<Vec<String>>()
+        };
         paths_list.sort();
 
         // Obtains the list of Variants in the graph

@@ -16,8 +16,5 @@ json = "0.12.4"
 priority-queue = "1.0.0"
 log = "0.4.11"
 
-three-edge-connected = { git = "https://github.com/chfi/rs-3-edge" }
-bstr = "0.2.13"
-
 
 

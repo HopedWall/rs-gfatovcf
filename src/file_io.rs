@@ -51,8 +51,7 @@ pub fn write_variants_to_file(
             "FORMAT",
             "SampleName",
         ]
-        .join("\t")
-        .to_string(),
+        .join("\t"),
     );
 
     file.write_all(header.join("\n").as_bytes())
