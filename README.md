@@ -1,5 +1,5 @@
-# rs-GFAtoVCF
-rs-GFAtoVCF is a tool that finds variants in a Variation Graph. Refer to [this link](https://gsocgraph.blogspot.com/) for further details.
+# rs-gfatovcf
+rs-gfatovcf is a tool that finds variants in a Variation Graph. Refer to [this link](https://gsocgraph.blogspot.com/) for further details.
 
 ## How to run this tool
 First, clone this repo and move to the resulting directory:
